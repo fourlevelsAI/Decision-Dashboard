@@ -1,3 +1,4 @@
+ <!-- index.html -->
 <!doctype html>
 <html lang="en">
   <head>
@@ -14,18 +15,40 @@
         <p>Turn raw data into clear decisions.</p>
       </header>
 
-      <!-- Static test card (keep) -->
-      <section class="card">
-        <p>If you can see this card, styles are working.</p>
+      <!-- Controls + Metrics -->
+      <section class="card topbar">
+        <div class="topbar-left">
+          <div class="metric">
+            <div class="metric-label">Total decisions</div>
+            <div class="metric-value" id="m-total">0</div>
+          </div>
+
+          <div class="metric">
+            <div class="metric-label">Average confidence</div>
+            <div class="metric-value" id="m-avg">—</div>
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          <input id="search" type="search" placeholder="Search decisions…" />
+          <select id="sort">
+            <option value="newest">Sort: Newest</option>
+            <option value="oldest">Sort: Oldest</option>
+            <option value="conf_high">Sort: Confidence (High → Low)</option>
+            <option value="conf_low">Sort: Confidence (Low → High)</option>
+          </select>
+
+          <button class="btn btn-ghost" id="export">Export</button>
+          <button class="btn btn-ghost" id="import-btn">Import</button>
+          <input id="import" type="file" accept="application/json" hidden />
+        </div>
       </section>
 
-      <!-- Add decision form -->
+      <!-- Add a decision -->
       <section class="card">
-        <div class="card-header">
+        <div class="card-title-row">
           <h3>Add a decision</h3>
-          <div class="actions">
-            <button id="clear" class="btn btn-secondary" type="button">Clear all</button>
-          </div>
+          <button class="btn btn-ghost" id="clear">Clear all</button>
         </div>
 
         <div class="form-grid">
@@ -44,15 +67,19 @@
             <input id="conf" type="number" min="0" max="100" placeholder="e.g., 68" />
           </div>
 
-          <div class="field field-full">
+          <div class="field">
+            <label for="tag">Tag (optional)</label>
+            <input id="tag" type="text" placeholder="e.g., Hiring / Marketing / Pricing" />
+          </div>
+
+          <div class="field field-wide">
             <label for="why">Reason</label>
             <textarea id="why" rows="3" placeholder="Why? What data supports this?"></textarea>
           </div>
         </div>
 
-        <div class="form-footer">
-          <p id="error" class="error" aria-live="polite"></p>
-          <button id="add" class="btn" type="button">Add decision</button>
+        <div class="actions">
+          <button class="btn btn-primary" id="add">Add decision</button>
         </div>
       </section>
 
@@ -63,3 +90,4 @@
     <script src="app.js"></script>
   </body>
 </html>
+
