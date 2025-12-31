@@ -21,24 +21,42 @@
 
       <!-- Add decision form -->
       <section class="card">
-        <h3>Add a decision</h3>
+        <div class="card-header">
+          <h3>Add a decision</h3>
+          <div class="actions">
+            <button id="clear" class="btn btn-secondary" type="button">Clear all</button>
+          </div>
+        </div>
 
-        <label for="q">Decision question</label>
-        <input id="q" type="text" placeholder="e.g., Hire a senior engineer this quarter?" />
+        <div class="form-grid">
+          <div class="field">
+            <label for="q">Decision question</label>
+            <input id="q" type="text" placeholder="e.g., Hire a senior engineer this quarter?" />
+          </div>
 
-        <label for="rec">Recommendation</label>
-        <input id="rec" type="text" placeholder="e.g., Proceed cautiously" />
+          <div class="field">
+            <label for="rec">Recommendation</label>
+            <input id="rec" type="text" placeholder="e.g., Proceed cautiously" />
+          </div>
 
-        <label for="conf">Confidence (0–100)</label>
-        <input id="conf" type="number" min="0" max="100" placeholder="e.g., 68" />
+          <div class="field">
+            <label for="conf">Confidence (0–100)</label>
+            <input id="conf" type="number" min="0" max="100" placeholder="e.g., 68" />
+          </div>
 
-        <label for="why">Reason</label>
-        <textarea id="why" rows="3" placeholder="Why? What data supports this?"></textarea>
+          <div class="field field-full">
+            <label for="why">Reason</label>
+            <textarea id="why" rows="3" placeholder="Why? What data supports this?"></textarea>
+          </div>
+        </div>
 
-        <button id="add" type="button">Add decision</button>
+        <div class="form-footer">
+          <p id="error" class="error" aria-live="polite"></p>
+          <button id="add" class="btn" type="button">Add decision</button>
+        </div>
       </section>
 
-      <!-- Decisions will be rendered here by app.js -->
+      <!-- Decisions render here -->
       <section id="decisions"></section>
     </div>
 
