@@ -19,6 +19,25 @@
         <p>If you can see this card, styles are working.</p>
       </section>
 
+      <!-- Add decision form -->
+      <section class="card">
+        <h3>Add a decision</h3>
+
+        <label for="q">Decision question</label>
+        <input id="q" type="text" placeholder="e.g., Hire a senior engineer this quarter?" />
+
+        <label for="rec">Recommendation</label>
+        <input id="rec" type="text" placeholder="e.g., Proceed cautiously" />
+
+        <label for="conf">Confidence (0–100)</label>
+        <input id="conf" type="number" min="0" max="100" placeholder="e.g., 68" />
+
+        <label for="why">Reason</label>
+        <textarea id="why" rows="3" placeholder="Why? What data supports this?"></textarea>
+
+        <button id="add" type="button">Add decision</button>
+      </section>
+
       <!-- Decisions will be rendered here by app.js -->
       <section id="decisions"></section>
     </div>
