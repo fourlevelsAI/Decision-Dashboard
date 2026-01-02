@@ -1,270 +1,367 @@
-// Decision Dashboard — V.4.3.2 (Founder)
-// Storage: localStorage (client-side)
+/* V.4.3.2 — Decision Dashboard (Vanilla JS)
+   - Stores decisions in localStorage
+   - Renders decision cards
+   - Computes KPI stats (Open, Upcoming 14d, High Risk, Avg Confidence)
+   - Filters: status + risk + search
+*/
 
-const STORAGE_KEY = "decisions_v432";
+const STORAGE_KEY = "v432_decisions";
 
-// Helpers
-const $ = (id) => document.getElementById(id);
+const els = {
+  form: document.getElementById("decisionForm"),
+  clearAll: document.getElementById("clearAll"),
+
+  type: document.getElementById("type"),
+  status: document.getElementById("status"),
+  impact: document.getElementById("impact"),
+  question: document.getElementById("question"),
+  recommendation: document.getElementById("recommendation"),
+  confidence: document.getElementById("confidence"),
+  reviewDate: document.getElementById("reviewDate"),
+  reason: document.getElementById("reason"),
+
+  runway: document.getElementById("runway"),
+  growth: document.getElementById("growth"),
+  ltvCac: document.getElementById("ltvCac"),
+  guardrails: document.getElementById("guardrails"),
+
+  filterStatus: document.getElementById("filterStatus"),
+  filterRisk: document.getElementById("filterRisk"),
+  search: document.getElementById("search"),
+
+  list: document.getElementById("decisions"),
+
+  kpiOpen: document.getElementById("kpi-open"),
+  kpiOpenSub: document.getElementById("kpi-open-sub"),
+  kpiUpcoming: document.getElementById("kpi-upcoming"),
+  kpiUpcomingSub: document.getElementById("kpi-upcoming-sub"),
+  kpiRisk: document.getElementById("kpi-risk"),
+  kpiRiskSub: document.getElementById("kpi-risk-sub"),
+  kpiAvg: document.getElementById("kpi-avg"),
+  kpiAvgSub: document.getElementById("kpi-avg-sub"),
+};
+
+function uid() {
+  return Math.random().toString(16).slice(2) + Date.now().toString(16);
+}
 
 function todayISO() {
   const d = new Date();
-  const tzOffset = d.getTimezoneOffset() * 60000;
-  return new Date(d.getTime() - tzOffset).toISOString().slice(0, 10);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
 }
 
-function parseISODate(s) {
-  // Expect "YYYY-MM-DD"
-  if (!s) return null;
-  const [y, m, d] = s.split("-").map(Number);
-  return new Date(y, m - 1, d);
+function parseNum(v) {
+  if (v === "" || v === null || v === undefined) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
 }
 
-function daysBetween(a, b) {
-  // b - a in days
-  const ms = (b.getTime() - a.getTime());
-  return Math.floor(ms / (24 * 60 * 60 * 1000));
-}
-
-function computeRisk({ confidence, runway, ltvcac, growth }) {
-  // Simple heuristic (adjust anytime)
-  const c = Number(confidence ?? 0);
-  const r = Number(runway ?? 0);
-  const l = Number(ltvcac ?? 0);
-  const g = Number(growth ?? 0);
-
-  // High risk if confidence low OR runway tight OR LTV/CAC weak (for paid growth decisions)
-  if (c && c < 55) return "High";
-  if (r && r > 0 && r < 3) return "High";
-  if (l && l > 0 && l < 2) return "High";
-  if (g && g < 0) return "High";
-
-  // Medium if borderline
-  if ((c && c < 70) || (r && r > 0 && r < 6) || (l && l > 0 && l < 3)) return "Medium";
-
-  return "Low";
-}
-
-// Data
-function loadDecisions() {
+function load() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const data = raw ? JSON.parse(raw) : [];
+    return Array.isArray(data) ? data : [];
   } catch {
     return [];
   }
 }
 
-function saveDecisions(list) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+function save(decisions) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(decisions));
 }
 
-function addDecision(decision) {
-  const list = loadDecisions();
-  list.unshift(decision);
-  saveDecisions(list);
-  render();
-}
-
-function deleteDecision(id) {
-  const list = loadDecisions().filter((d) => d.id !== id);
-  saveDecisions(list);
-  render();
-}
-
-function clearAll() {
-  localStorage.removeItem(STORAGE_KEY);
-  render();
-}
-
-// UI: KPIs
-function updateKPIs(decisions) {
-  const open = decisions.filter((d) => d.status !== "Reviewed").length;
-
+function isUpcomingWithinDays(isoDate, days) {
+  if (!isoDate) return false;
+  const d = new Date(isoDate + "T00:00:00");
   const now = new Date();
-  const upcoming = decisions.filter((d) => {
-    if (!d.reviewDate) return false;
-    const rd = parseISODate(d.reviewDate);
-    if (!rd) return false;
-    const delta = daysBetween(now, rd);
-    return delta >= 0 && delta <= 14;
-  }).length;
+  const end = new Date();
+  end.setDate(now.getDate() + days);
 
-  const highRisk = decisions.filter((d) => d.risk === "High").length;
+  // compare date-only
+  const dd = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const nn = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const ee = new Date(end.getFullYear(), end.getMonth(), end.getDate());
 
-  const confVals = decisions
-    .map((d) => Number(d.confidence))
-    .filter((n) => Number.isFinite(n));
-
-  const avg = confVals.length
-    ? Math.round(confVals.reduce((a, b) => a + b, 0) / confVals.length)
-    : null;
-
-  $("kpi-open").textContent = String(open);
-  $("kpi-upcoming").textContent = String(upcoming);
-  $("kpi-risk").textContent = String(highRisk);
-  $("kpi-avg").textContent = avg === null ? "—" : `${avg}%`;
-
-  $("kpi-open-sub").textContent = open === 0 ? "Not reviewed yet" : "Needs review";
+  return dd >= nn && dd <= ee;
 }
 
-// UI: List
+// Risk rule (simple + predictable):
+// - confidence < 60 => high risk
+// - OR impact=High AND confidence < 70 => high risk
+// - OR recommendation/guardrails missing when impact=High => high risk
+function isHighRisk(decision) {
+  const c = Number(decision.confidence ?? 0);
+  const impact = decision.impact;
+
+  if (c < 60) return true;
+  if (impact === "High" && c < 70) return true;
+  if (impact === "High") {
+    const hasGuardrails = (decision.guardrails || "").trim().length > 0;
+    const rec = (decision.recommendation || "").toLowerCase();
+    if (!hasGuardrails && !rec.includes("guard")) return true;
+  }
+  return false;
+}
+
+function computeKPIs(decisions) {
+  const open = decisions.filter(d => d.status !== "Reviewed").length;
+
+  const upcoming = decisions.filter(d => d.status !== "Reviewed" && isUpcomingWithinDays(d.reviewDate, 14)).length;
+
+  const highRisk = decisions.filter(d => d.status !== "Reviewed" && isHighRisk(d)).length;
+
+  const confidences = decisions.map(d => Number(d.confidence)).filter(n => Number.isFinite(n));
+  const avg = confidences.length ? Math.round(confidences.reduce((a,b)=>a+b,0) / confidences.length) : null;
+
+  return { open, upcoming, highRisk, avg };
+}
+
+function setKPIs(kpis) {
+  els.kpiOpen.textContent = String(kpis.open);
+  els.kpiUpcoming.textContent = String(kpis.upcoming);
+  els.kpiRisk.textContent = String(kpis.highRisk);
+  els.kpiAvg.textContent = kpis.avg === null ? "—" : `${kpis.avg}%`;
+
+  els.kpiOpenSub.textContent = kpis.open === 0 ? "Not reviewed yet" : "Active decisions";
+  els.kpiUpcomingSub.textContent = "Next 14 days";
+  els.kpiRiskSub.textContent = "Needs guardrails";
+  els.kpiAvgSub.textContent = "Across all decisions";
+}
+
 function matchesSearch(d, q) {
   if (!q) return true;
-  const hay = `${d.type} ${d.status} ${d.impact} ${d.question} ${d.recommendation} ${d.reason}`.toLowerCase();
-  return hay.includes(q.toLowerCase());
+  const s = q.toLowerCase();
+  return (
+    (d.question || "").toLowerCase().includes(s) ||
+    (d.recommendation || "").toLowerCase().includes(s) ||
+    (d.reason || "").toLowerCase().includes(s) ||
+    (d.type || "").toLowerCase().includes(s) ||
+    (d.status || "").toLowerCase().includes(s)
+  );
 }
 
-function renderList(decisions) {
-  const statusFilter = $("filter-status").value;
-  const riskFilter = $("filter-risk").value;
-  const query = $("search").value.trim();
+function applyFilters(decisions) {
+  const status = els.filterStatus.value;
+  const risk = els.filterRisk.value;
+  const q = (els.search.value || "").trim();
 
-  const filtered = decisions.filter((d) => {
-    const okStatus = statusFilter === "all" ? true : d.status === statusFilter;
-    const okRisk = riskFilter === "all" ? true : d.risk === riskFilter;
-    const okSearch = matchesSearch(d, query);
-    return okStatus && okRisk && okSearch;
+  return decisions.filter(d => {
+    if (status !== "ALL" && d.status !== status) return false;
+
+    const hr = isHighRisk(d);
+    if (risk === "HIGH" && !hr) return false;
+    if (risk === "OK" && hr) return false;
+
+    if (!matchesSearch(d, q)) return false;
+
+    return true;
   });
+}
 
-  const root = $("decisions");
-  root.innerHTML = "";
+function fmtDate(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso + "T00:00:00");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
 
+function el(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text !== undefined) n.textContent = text;
+  return n;
+}
+
+function render(decisions) {
+  // KPIs from ALL decisions (not filtered) — this is what dashboards normally do
+  setKPIs(computeKPIs(decisions));
+
+  // List view from filtered decisions
+  const filtered = applyFilters(decisions);
+
+  els.list.innerHTML = "";
   if (!filtered.length) {
-    const empty = document.createElement("div");
-    empty.className = "meta";
-    empty.textContent = "No decisions match your filters yet.";
-    root.appendChild(empty);
+    const empty = el("div", "card decision-card");
+    empty.appendChild(el("div", "decision-title", "No decisions match your filters."));
+    empty.appendChild(el("div", "reason", "Add a decision above or adjust filters."));
+    els.list.appendChild(empty);
     return;
   }
 
-  filtered.forEach((d) => {
-    const el = document.createElement("div");
-    el.className = "decision";
-
-    el.innerHTML = `
-      <div class="decision-top">
-        <div>
-          <div class="badges">
-            <span class="badge">${d.type}</span>
-            <span class="badge">${d.status}</span>
-            <span class="badge">${d.impact} impact</span>
-            <span class="badge">${d.risk} risk</span>
-            ${d.reviewDate ? `<span class="badge mono">Review: ${d.reviewDate}</span>` : ""}
-          </div>
-
-          <div class="meta" style="margin-top:10px;">
-            <strong>Decision:</strong> ${escapeHTML(d.question || "—")}<br/>
-            <strong>Recommendation:</strong> ${escapeHTML(d.recommendation || "—")}<br/>
-            <strong>Confidence:</strong> <span class="mono">${formatNum(d.confidence)}%</span>
-            ${d.runway !== "" && d.runway !== null && d.runway !== undefined ? ` • <strong>Runway:</strong> <span class="mono">${formatNum(d.runway)} mo</span>` : ""}
-            ${d.growth !== "" && d.growth !== null && d.growth !== undefined ? ` • <strong>Growth:</strong> <span class="mono">${formatNum(d.growth)}%</span>` : ""}
-            ${d.ltvcac !== "" && d.ltvcac !== null && d.ltvcac !== undefined ? ` • <strong>LTV/CAC:</strong> <span class="mono">${formatNum(d.ltvcac)}</span>` : ""}
-            <br/>
-            <strong>Reason:</strong> ${escapeHTML(d.reason || "—")}
-          </div>
-        </div>
-
-        <div class="small-actions">
-          <button data-del="${d.id}" title="Delete">Delete</button>
-        </div>
-      </div>
-    `;
-
-    root.appendChild(el);
+  // Sort: soonest review first, then newest
+  filtered.sort((a, b) => {
+    const ad = a.reviewDate ? new Date(a.reviewDate).getTime() : Infinity;
+    const bd = b.reviewDate ? new Date(b.reviewDate).getTime() : Infinity;
+    if (ad !== bd) return ad - bd;
+    return (b.createdAt || 0) - (a.createdAt || 0);
   });
 
-  // Bind delete
-  root.querySelectorAll("button[data-del]").forEach((btn) => {
-    btn.addEventListener("click", () => deleteDecision(btn.getAttribute("data-del")));
+  filtered.forEach(d => {
+    const card = el("div", "card decision-card");
+
+    const top = el("div", "decision-top");
+    const left = el("div");
+
+    const title = el("h3", "decision-title", "Decision");
+    const question = el("div", "", d.question || "—");
+    question.style.marginTop = "6px";
+    question.style.fontWeight = "800";
+
+    left.appendChild(title);
+    left.appendChild(question);
+
+    const meta = el("div", "meta");
+    meta.appendChild(el("span", "chip", d.type));
+    meta.appendChild(el("span", "chip", d.status));
+    meta.appendChild(el("span", "chip", `Impact: ${d.impact}`));
+
+    const riskChip = el("span", `chip ${isHighRisk(d) ? "high" : "ok"}`, isHighRisk(d) ? "High Risk" : "OK");
+    meta.appendChild(riskChip);
+
+    top.appendChild(left);
+    top.appendChild(meta);
+
+    const body = el("div", "decision-body");
+
+    const b1 = el("div", "block");
+    b1.appendChild(el("div", "label", "RECOMMENDATION"));
+    b1.appendChild(el("div", "value", d.recommendation || "—"));
+
+    const b2 = el("div", "block");
+    b2.appendChild(el("div", "label", "CONFIDENCE"));
+    b2.appendChild(el("div", "value", `${d.confidence ?? "—"}${d.confidence !== null && d.confidence !== undefined ? "%" : ""}`));
+
+    body.appendChild(b1);
+    body.appendChild(b2);
+
+    const reason = el("div", "reason", `Reason: ${d.reason || "—"}`);
+
+    const row = el("div", "row");
+    row.appendChild(el("div", "", `Review: `));
+    const rb = el("b", "", fmtDate(d.reviewDate));
+    row.lastChild.appendChild(rb);
+
+    const extras = [];
+    if (d.runwayMonths !== null) extras.push(`Runway: ${d.runwayMonths}m`);
+    if (d.growthMoM !== null) extras.push(`MoM: ${d.growthMoM}%`);
+    if (d.ltvCac !== null) extras.push(`LTV/CAC: ${d.ltvCac}`);
+    if ((d.guardrails || "").trim()) extras.push(`Guardrails: ${d.guardrails}`);
+
+    if (extras.length) {
+      const extraLine = el("div", "row");
+      extraLine.appendChild(el("div", "", extras.join(" • ")));
+      card.appendChild(top);
+      card.appendChild(body);
+      card.appendChild(reason);
+      card.appendChild(row);
+      card.appendChild(extraLine);
+    } else {
+      card.appendChild(top);
+      card.appendChild(body);
+      card.appendChild(reason);
+      card.appendChild(row);
+    }
+
+    const actions = el("div", "actions");
+    const del = el("button", "btn small", "Delete");
+    del.type = "button";
+    del.addEventListener("click", () => {
+      const next = load().filter(x => x.id !== d.id);
+      save(next);
+      render(next);
+    });
+
+    const markReviewed = el("button", "btn small", d.status === "Reviewed" ? "Mark active" : "Mark reviewed");
+    markReviewed.type = "button";
+    markReviewed.addEventListener("click", () => {
+      const all = load();
+      const idx = all.findIndex(x => x.id === d.id);
+      if (idx === -1) return;
+
+      all[idx].status = all[idx].status === "Reviewed" ? "Proposed" : "Reviewed";
+      save(all);
+      render(all);
+    });
+
+    actions.appendChild(markReviewed);
+    actions.appendChild(del);
+    card.appendChild(actions);
+
+    els.list.appendChild(card);
   });
 }
 
-function escapeHTML(s) {
-  return String(s || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+function resetFormKeepDefaults() {
+  els.question.value = "";
+  els.recommendation.value = "";
+  els.confidence.value = "";
+  els.reason.value = "";
+
+  els.runway.value = "";
+  els.growth.value = "";
+  els.ltvCac.value = "";
+  els.guardrails.value = "";
+
+  els.reviewDate.value = todayISO();
+  els.question.focus();
 }
 
-function formatNum(n) {
-  const v = Number(n);
-  return Number.isFinite(v) ? String(v) : "—";
-}
-
-// Render all
-function render() {
-  const decisions = loadDecisions();
-  updateKPIs(decisions);
-  renderList(decisions);
-}
-
-// Init + events
 function init() {
-  // Default review date = today
-  $("reviewDate").value = todayISO();
+  // default review date = today
+  els.reviewDate.value = todayISO();
 
-  // Form submit
-  $("decision-form").addEventListener("submit", (e) => {
+  // Load initial
+  const decisions = load();
+  render(decisions);
+
+  // Add decision
+  els.form.addEventListener("submit", (e) => {
     e.preventDefault();
 
-    const decision = {
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-      createdAt: new Date().toISOString(),
+    const d = {
+      id: uid(),
+      type: els.type.value,
+      status: els.status.value,
+      impact: els.impact.value,
+      question: els.question.value.trim(),
+      recommendation: els.recommendation.value.trim(),
+      confidence: parseNum(els.confidence.value),
+      reviewDate: els.reviewDate.value,
+      reason: els.reason.value.trim(),
 
-      type: $("type").value,
-      status: $("status").value,
-      impact: $("impact").value,
+      runwayMonths: parseNum(els.runway.value),
+      growthMoM: parseNum(els.growth.value),
+      ltvCac: parseNum(els.ltvCac.value),
+      guardrails: (els.guardrails.value || "").trim(),
 
-      question: $("question").value.trim(),
-      recommendation: $("recommendation").value.trim(),
-
-      confidence: $("confidence").value === "" ? null : Number($("confidence").value),
-      runway: $("runway").value === "" ? null : Number($("runway").value),
-      growth: $("growth").value === "" ? null : Number($("growth").value),
-      ltvcac: $("ltvcac").value === "" ? null : Number($("ltvcac").value),
-
-      reviewDate: $("reviewDate").value || null,
-      reason: $("reason").value.trim()
+      createdAt: Date.now(),
     };
 
-    decision.risk = computeRisk(decision);
+    const all = load();
+    all.push(d);
+    save(all);
 
-    // Minimal validation
-    if (!decision.question) {
-      alert("Add a Decision question.");
-      return;
-    }
-    if (decision.confidence !== null && (decision.confidence < 0 || decision.confidence > 100)) {
-      alert("Confidence must be between 0 and 100.");
-      return;
-    }
-
-    addDecision(decision);
-
-    // Clear form (keep review date)
-    $("question").value = "";
-    $("recommendation").value = "";
-    $("confidence").value = "";
-    $("runway").value = "";
-    $("growth").value = "";
-    $("ltvcac").value = "";
-    $("reason").value = "";
-  });
-
-  // Filters
-  ["filter-status", "filter-risk", "search"].forEach((id) => {
-    $(id).addEventListener("input", render);
-    $(id).addEventListener("change", render);
+    render(all);
+    resetFormKeepDefaults();
   });
 
   // Clear all
-  $("clear-all").addEventListener("click", () => {
-    if (confirm("Clear all saved decisions?")) clearAll();
+  els.clearAll.addEventListener("click", () => {
+    if (!confirm("Clear all decisions? This cannot be undone.")) return;
+    save([]);
+    render([]);
   });
 
-  render();
+  // Filters
+  [els.filterStatus, els.filterRisk, els.search].forEach(x => {
+    x.addEventListener("input", () => render(load()));
+    x.addEventListener("change", () => render(load()));
+  });
 }
 
 init();
