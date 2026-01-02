@@ -1,248 +1,358 @@
- // app.js
-// Works with: #stat-open, #stat-upcoming, #stat-risk, #stat-avg
-// and filters: #filter-status, #filter-risk, #search
-// and list: #decisions-list
+/* Decision Dashboard — V.4.3.2 (localStorage MVP)
+   - Add decision
+   - Persist
+   - Stats (Open, Upcoming 14 days, High risk, Avg confidence)
+   - Filters + search
+   - Mark reviewed / delete / clear all
+*/
+
+const STORAGE_KEY = "decision_dashboard_v432";
+
+const $ = (id) => document.getElementById(id);
 
 const els = {
-  statOpen: document.getElementById("stat-open"),
-  statUpcoming: document.getElementById("stat-upcoming"),
-  statRisk: document.getElementById("stat-risk"),
-  statAvg: document.getElementById("stat-avg"),
-  list: document.getElementById("decisions-list"),
-  filterStatus: document.getElementById("filter-status"),
-  filterRisk: document.getElementById("filter-risk"),
-  search: document.getElementById("search"),
+  // KPI
+  kpiOpen: $("kpi-open"),
+  kpiUpcoming: $("kpi-upcoming"),
+  kpiRisk: $("kpi-risk"),
+  kpiAvg: $("kpi-avg"),
+  kpiOpenSub: $("kpi-open-sub"),
+
+  // Form
+  form: $("decisionForm"),
+  clearAll: $("clearAll"),
+
+  type: $("type"),
+  status: $("status"),
+  impact: $("impact"),
+  question: $("question"),
+  recommendation: $("recommendation"),
+  confidence: $("confidence"),
+  reviewDate: $("reviewDate"),
+  risk: $("risk"),
+  reason: $("reason"),
+  guardrails: $("guardrails"),
+  runway: $("runway"),
+  mom: $("mom"),
+  ltvCAC: $("ltvCAC"),
+  metricNote: $("metricNote"),
+
+  // List
+  decisions: $("decisions"),
+  empty: $("decisionsEmpty"),
+  filterStatus: $("filterStatus"),
+  filterRisk: $("filterRisk"),
+  search: $("search"),
 };
 
-const STORAGE_KEY = "fourlevels_decisions_v1";
-
-// ---- Data shape (expected)
-// {
-//   id: "D-001",
-//   title: "Hire SDR",
-//   status: "Proposed" | "Approved" | "Rejected" | "Reviewed",
-//   owner: "Mo",
-//   risk: "high" | "ok",
-//   confidence: 0..100,          // number
-//   reviewDate: "2026-01-10",    // ISO date string
-//   createdAt: "2026-01-02",     // ISO date string
-//   notes: "optional"
-// }
-
-// ---------- Helpers
-function daysFromNow(isoDate) {
-  if (!isoDate) return null;
-  const d = new Date(isoDate);
-  if (Number.isNaN(d.getTime())) return null;
-  const now = new Date();
-  // Strip time
-  const a = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const b = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  return Math.round((b - a) / (1000 * 60 * 60 * 24));
+function uid() {
+  return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
-function safeText(s) {
-  return (s ?? "").toString();
+function todayISO() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
 }
 
-function normalize(s) {
-  return safeText(s).trim().toLowerCase();
+function parseISODate(iso) {
+  // safe parse in local time
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d);
 }
 
-function getBasePath() {
-  // GitHub Pages fix:
-  // If hosted at https://user.github.io/repo/, basePath is "/repo"
-  const parts = window.location.pathname.split("/").filter(Boolean);
-  // For project pages, first segment is repo name.
-  // For user/organization pages, there may be no repo segment.
-  // We'll attempt to detect by checking if we're on *.github.io and have at least 1 segment.
-  const isGitHubPages = window.location.hostname.endsWith("github.io");
-  if (!isGitHubPages) return "";
-  if (parts.length === 0) return "";
-  return `/${parts[0]}`;
+function daysBetween(a, b) {
+  const ms = 24 * 60 * 60 * 1000;
+  const aa = new Date(a.getFullYear(), a.getMonth(), a.getDate()).getTime();
+  const bb = new Date(b.getFullYear(), b.getMonth(), b.getDate()).getTime();
+  return Math.round((bb - aa) / ms);
 }
 
-async function loadDecisions() {
-  // 1) Try localStorage
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored) {
-    try {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) return parsed;
-    } catch {}
-  }
-
-  // 2) Try decisions.json (recommended for MVP)
-  // Put decisions.json in your /public or repo root and fetch with base path support
-  const base = getBasePath();
-  const url = `${base}/decisions.json`;
-
+function load() {
   try {
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
-    const data = await res.json();
-    if (Array.isArray(data)) return data;
-  } catch (e) {
-    console.warn("No decisions.json found or fetch failed:", e);
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const data = raw ? JSON.parse(raw) : [];
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
   }
-
-  // 3) Fallback: empty
-  return [];
 }
 
-function saveDecisions(decisions) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(decisions));
+function save(list) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
 }
 
-// ---------- Rendering
-function computeStats(decisions) {
-  // Open decisions: anything not Rejected AND not Reviewed (tweak if you want)
-  const open = decisions.filter(d => !["Rejected", "Reviewed"].includes(d.status));
+let decisions = load();
 
-  const upcoming = open.filter(d => {
-    const diff = daysFromNow(d.reviewDate);
-    return diff !== null && diff >= 0 && diff <= 14;
-  });
+// Default review date = today
+els.reviewDate.value = todayISO();
 
-  const highRisk = open.filter(d => normalize(d.risk) === "high");
-
-  const confidences = open
-    .map(d => Number(d.confidence))
-    .filter(n => Number.isFinite(n));
-
-  const avg = confidences.length
-    ? Math.round(confidences.reduce((a, b) => a + b, 0) / confidences.length)
-    : null;
-
+function normalizeDecision(d) {
+  const confidence = Number(d.confidence);
   return {
-    openCount: open.length,
-    upcomingCount: upcoming.length,
-    highRiskCount: highRisk.length,
-    avgConfidence: avg, // number or null
+    id: d.id ?? uid(),
+    createdAt: d.createdAt ?? new Date().toISOString(),
+    type: d.type ?? "Strategy",
+    status: d.status ?? "Proposed",
+    impact: d.impact ?? "Medium",
+    risk: d.risk ?? "none",
+    question: (d.question ?? "").trim(),
+    recommendation: (d.recommendation ?? "").trim(),
+    confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(100, confidence)) : 0,
+    reviewDate: d.reviewDate ?? todayISO(),
+    reason: (d.reason ?? "").trim(),
+    guardrails: (d.guardrails ?? "").trim(),
+    runway: d.runway === "" || d.runway == null ? null : Number(d.runway),
+    mom: d.mom === "" || d.mom == null ? null : Number(d.mom),
+    ltvCAC: d.ltvCAC === "" || d.ltvCAC == null ? null : Number(d.ltvCAC),
+    metricNote: (d.metricNote ?? "").trim(),
   };
 }
 
-function applyFilters(decisions) {
-  const status = els.filterStatus?.value || "";
-  const risk = els.filterRisk?.value || "";
-  const q = normalize(els.search?.value || "");
+function computeKPIs(list) {
+  const now = parseISODate(todayISO());
 
-  return decisions.filter(d => {
-    const matchesStatus = status ? d.status === status : true;
-    const matchesRisk = risk ? normalize(d.risk) === risk : true;
+  // "Open" = not Reviewed
+  const open = list.filter((d) => d.status !== "Reviewed").length;
 
-    if (!q) return matchesStatus && matchesRisk;
+  // Upcoming reviews = review date within next 14 days (including today), excluding already reviewed
+  const upcoming = list.filter((d) => {
+    if (d.status === "Reviewed") return false;
+    const rd = parseISODate(d.reviewDate);
+    const delta = daysBetween(now, rd);
+    return delta >= 0 && delta <= 14;
+  }).length;
 
-    const haystack = normalize(
-      `${d.id} ${d.title} ${d.owner} ${d.status} ${d.risk} ${d.notes}`
-    );
-    const matchesQuery = haystack.includes(q);
+  // High risk = risk = high OR impact high with low confidence (<60) OR guardrails empty while status approved
+  const highRisk = list.filter((d) => {
+    const lowConf = d.confidence < 60;
+    const approved = d.status === "Approved";
+    const noGuardrails = !d.guardrails || d.guardrails.trim().length === 0;
+    return d.risk === "high" || (d.impact === "High" && lowConf) || (approved && noGuardrails);
+  }).length;
 
-    return matchesStatus && matchesRisk && matchesQuery;
-  });
+  // Avg confidence = across all decisions
+  const avg =
+    list.length === 0
+      ? null
+      : Math.round(list.reduce((sum, d) => sum + (Number(d.confidence) || 0), 0) / list.length);
+
+  return { open, upcoming, highRisk, avg };
 }
 
-function renderStats(stats) {
-  els.statOpen.textContent = String(stats.openCount);
-  els.statUpcoming.textContent = String(stats.upcomingCount);
-  els.statRisk.textContent = String(stats.highRiskCount);
-  els.statAvg.textContent = stats.avgConfidence === null ? "—" : `${stats.avgConfidence}%`;
+function setKPIs() {
+  const { open, upcoming, highRisk, avg } = computeKPIs(decisions);
+
+  els.kpiOpen.textContent = String(open);
+  els.kpiUpcoming.textContent = String(upcoming);
+  els.kpiRisk.textContent = String(highRisk);
+  els.kpiAvg.textContent = avg == null ? "—" : `${avg}%`;
+
+  els.kpiOpenSub.textContent = open === 1 ? "Active decision" : "Active decisions";
 }
 
-function badge(label, kind) {
-  return `<span class="badge badge-${kind}">${label}</span>`;
+function getFilteredList() {
+  const statusVal = els.filterStatus.value;
+  const riskVal = els.filterRisk.value;
+  const q = (els.search.value || "").trim().toLowerCase();
+
+  return decisions
+    .slice()
+    .sort((a, b) => (a.reviewDate < b.reviewDate ? -1 : 1))
+    .filter((d) => {
+      if (statusVal !== "all" && d.status !== statusVal) return false;
+      if (riskVal !== "all" && d.risk !== riskVal) return false;
+
+      if (!q) return true;
+      const hay = `${d.type} ${d.status} ${d.impact} ${d.risk} ${d.question} ${d.recommendation} ${d.reason} ${d.guardrails}`.toLowerCase();
+      return hay.includes(q);
+    });
 }
 
-function renderList(decisions) {
-  if (!els.list) return;
+function tagForStatus(status) {
+  if (status === "Reviewed") return { text: "Reviewed", cls: "ok" };
+  if (status === "Approved") return { text: "Approved", cls: "ok" };
+  if (status === "In progress") return { text: "In progress", cls: "warn" };
+  return { text: status, cls: "" };
+}
 
-  if (!decisions.length) {
-    els.list.innerHTML = `
-      <div class="empty">
-        <div class="empty-title">No decisions found</div>
-        <div class="empty-sub">Adjust filters or add your first decision.</div>
+function tagForImpact(impact) {
+  if (impact === "High") return { text: "Impact: High", cls: "warn" };
+  if (impact === "Low") return { text: "Impact: Low", cls: "" };
+  return { text: "Impact: Medium", cls: "" };
+}
+
+function tagForRisk(risk) {
+  if (risk === "high") return { text: "High risk", cls: "risk" };
+  if (risk === "watch") return { text: "Watch", cls: "warn" };
+  return { text: "OK", cls: "ok" };
+}
+
+function render() {
+  setKPIs();
+
+  const list = getFilteredList();
+  els.decisions.innerHTML = "";
+
+  els.empty.style.display = list.length === 0 ? "block" : "none";
+
+  for (const d of list) {
+    const statusTag = tagForStatus(d.status);
+    const impactTag = tagForImpact(d.impact);
+    const riskTag = tagForRisk(d.risk);
+
+    const card = document.createElement("div");
+    card.className = "dcard";
+
+    const advancedBits = [];
+    if (Number.isFinite(d.runway)) advancedBits.push(`Runway: ${d.runway}m`);
+    if (Number.isFinite(d.mom)) advancedBits.push(`MoM: ${d.mom}%`);
+    if (Number.isFinite(d.ltvCAC)) advancedBits.push(`LTV/CAC: ${d.ltvCAC}`);
+    if (d.guardrails) advancedBits.push(`Guardrails: ${d.guardrails}`);
+    if (d.metricNote) advancedBits.push(`Note: ${d.metricNote}`);
+
+    card.innerHTML = `
+      <div class="dtop">
+        <div>
+          <div class="dtitle">Decision</div>
+          <div style="font-weight:900; font-size:16px; margin-top:-4px;">${escapeHtml(d.question)}</div>
+        </div>
+        <div class="dmeta">
+          <span class="tag">${escapeHtml(d.type)}</span>
+          <span class="tag ${statusTag.cls}">${escapeHtml(statusTag.text)}</span>
+          <span class="tag">${escapeHtml(impactTag.text)}</span>
+          <span class="tag ${riskTag.cls}">${escapeHtml(riskTag.text)}</span>
+        </div>
+      </div>
+
+      <div class="dgrid">
+        <div class="box">
+          <h4>RECOMMENDATION</h4>
+          <p>${escapeHtml(d.recommendation)}</p>
+        </div>
+
+        <div class="box">
+          <h4>CONFIDENCE</h4>
+          <p>${escapeHtml(String(d.confidence))}%</p>
+        </div>
+      </div>
+
+      <div class="dtext"><strong>Reason:</strong> ${escapeHtml(d.reason)}</div>
+      <div class="dline"><strong>Review:</strong> ${formatDate(d.reviewDate)}</div>
+      ${
+        advancedBits.length
+          ? `<div class="dline">${escapeHtml(advancedBits.join(" · "))}</div>`
+          : ""
+      }
+
+      <div class="dactions">
+        ${
+          d.status !== "Reviewed"
+            ? `<button class="btn small" data-action="review" data-id="${d.id}">Mark reviewed</button>`
+            : `<button class="btn small ghost" data-action="unreview" data-id="${d.id}">Un-review</button>`
+        }
+        <button class="btn small ghost" data-action="delete" data-id="${d.id}">Delete</button>
       </div>
     `;
-    return;
+
+    els.decisions.appendChild(card);
   }
-
-  els.list.innerHTML = decisions
-    .sort((a, b) => {
-      // Upcoming review first
-      const da = daysFromNow(a.reviewDate);
-      const db = daysFromNow(b.reviewDate);
-      const va = da === null ? 9999 : da;
-      const vb = db === null ? 9999 : db;
-      return va - vb;
-    })
-    .map(d => {
-      const diff = daysFromNow(d.reviewDate);
-      const reviewTxt =
-        diff === null ? "No review date" :
-        diff === 0 ? "Review today" :
-        diff > 0 ? `Review in ${diff}d` :
-        `Overdue ${Math.abs(diff)}d`;
-
-      const riskKind = normalize(d.risk) === "high" ? "danger" : "ok";
-      const conf = Number(d.confidence);
-      const confTxt = Number.isFinite(conf) ? `${conf}%` : "—";
-
-      return `
-        <article class="decision">
-          <div class="decision-main">
-            <div class="decision-title">
-              <span class="decision-id">${safeText(d.id || "")}</span>
-              <span>${safeText(d.title || "Untitled decision")}</span>
-            </div>
-            <div class="decision-meta">
-              ${badge(safeText(d.status || "Proposed"), "neutral")}
-              ${badge(normalize(d.risk) === "high" ? "High risk" : "OK", riskKind)}
-              <span class="meta-dot">•</span>
-              <span class="meta-item">${reviewTxt}</span>
-              <span class="meta-dot">•</span>
-              <span class="meta-item">Confidence: ${confTxt}</span>
-            </div>
-          </div>
-          <div class="decision-side">
-            <div class="owner">${safeText(d.owner || "")}</div>
-          </div>
-        </article>
-      `;
-    })
-    .join("");
 }
 
-function wireEvents(state) {
-  const rerender = () => {
-    const filtered = applyFilters(state.decisions);
-    renderStats(computeStats(state.decisions));
-    renderList(filtered);
-  };
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
 
-  ["change", "input"].forEach(evt => {
-    els.filterStatus?.addEventListener(evt, rerender);
-    els.filterRisk?.addEventListener(evt, rerender);
-    els.search?.addEventListener(evt, rerender);
+function formatDate(iso) {
+  // Keep it simple: show as DD/MM/YYYY
+  const d = parseISODate(iso);
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+// EVENTS
+els.form.addEventListener("submit", (e) => {
+  e.preventDefault();
+
+  const d = normalizeDecision({
+    type: els.type.value,
+    status: els.status.value,
+    impact: els.impact.value,
+    risk: els.risk.value,
+    question: els.question.value,
+    recommendation: els.recommendation.value,
+    confidence: els.confidence.value,
+    reviewDate: els.reviewDate.value,
+    reason: els.reason.value,
+    guardrails: els.guardrails.value,
+    runway: els.runway.value,
+    mom: els.mom.value,
+    ltvCAC: els.ltvCAC.value,
+    metricNote: els.metricNote.value,
   });
 
-  rerender();
-}
+  decisions.unshift(d);
+  save(decisions);
 
-async function init() {
-  const decisions = await loadDecisions();
+  // reset form (keep date = today)
+  els.form.reset();
+  els.reviewDate.value = todayISO();
+  els.impact.value = "Medium";
+  els.status.value = "Proposed";
+  els.risk.value = "none";
 
-  // Optional: if you want a visible demo when empty, uncomment:
-  // if (!decisions.length) {
-  //   decisions.push(
-  //     { id:"D-001", title:"Launch Level 1 free access", status:"Approved", owner:"Mo", risk:"ok", confidence:85, reviewDate:"2026-01-10", createdAt:"2026-01-02" },
-  //     { id:"D-002", title:"Switch onboarding flow", status:"Proposed", owner:"Mo", risk:"high", confidence:55, reviewDate:"2026-01-05", createdAt:"2026-01-02" }
-  //   );
-  //   saveDecisions(decisions);
-  // }
+  render();
+});
 
-  const state = { decisions };
-  wireEvents(state);
-}
+els.clearAll.addEventListener("click", () => {
+  const ok = confirm("Clear all saved decisions?");
+  if (!ok) return;
+  decisions = [];
+  save(decisions);
+  render();
+});
 
-document.addEventListener("DOMContentLoaded", init);
+els.decisions.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-action]");
+  if (!btn) return;
 
+  const id = btn.getAttribute("data-id");
+  const action = btn.getAttribute("data-action");
+  const idx = decisions.findIndex((d) => d.id === id);
+  if (idx === -1) return;
+
+  if (action === "delete") {
+    const ok = confirm("Delete this decision?");
+    if (!ok) return;
+    decisions.splice(idx, 1);
+  }
+
+  if (action === "review") {
+    decisions[idx].status = "Reviewed";
+  }
+
+  if (action === "unreview") {
+    decisions[idx].status = "Proposed";
+  }
+
+  save(decisions);
+  render();
+});
+
+["change", "input"].forEach((evt) => {
+  els.filterStatus.addEventListener(evt, render);
+  els.filterRisk.addEventListener(evt, render);
+  els.search.addEventListener(evt, render);
+});
+
+// Boot
+render();
