@@ -1,9 +1,9 @@
-<!doctype html>
+ <!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Decision Dashboard</title>
+    <title>V.4.3.2 — Decision Dashboard</title>
     <link rel="stylesheet" href="style.css" />
   </head>
 
@@ -15,151 +15,196 @@
             <h1>Decision Dashboard</h1>
             <p>Turn founder metrics into clear, reviewable decisions.</p>
           </div>
-          <span class="pill" id="version-pill">V.4.3.2</span>
+          <div class="badge">V.4.3.2</div>
         </div>
       </header>
 
-      <!-- KPI Row -->
-      <section class="kpi-row">
+      <!-- KPI / STATS -->
+      <section class="kpis" aria-label="Key metrics">
         <div class="kpi card">
-          <div class="kpi-title">OPEN DECISIONS</div>
+          <div class="kpi-label">OPEN DECISIONS</div>
           <div class="kpi-value" id="kpi-open">0</div>
           <div class="kpi-sub" id="kpi-open-sub">Not reviewed yet</div>
         </div>
 
         <div class="kpi card">
-          <div class="kpi-title">UPCOMING REVIEWS</div>
+          <div class="kpi-label">UPCOMING REVIEWS</div>
           <div class="kpi-value" id="kpi-upcoming">0</div>
-          <div class="kpi-sub">Next 14 days</div>
+          <div class="kpi-sub" id="kpi-upcoming-sub">Next 14 days</div>
         </div>
 
         <div class="kpi card">
-          <div class="kpi-title">HIGH RISK</div>
+          <div class="kpi-label">HIGH RISK</div>
           <div class="kpi-value" id="kpi-risk">0</div>
-          <div class="kpi-sub">Needs guardrails</div>
+          <div class="kpi-sub" id="kpi-risk-sub">Needs guardrails</div>
         </div>
 
         <div class="kpi card">
-          <div class="kpi-title">AVG CONFIDENCE</div>
+          <div class="kpi-label">AVG CONFIDENCE</div>
           <div class="kpi-value" id="kpi-avg">—</div>
-          <div class="kpi-sub">Across all decisions</div>
+          <div class="kpi-sub" id="kpi-avg-sub">Across all decisions</div>
         </div>
       </section>
 
-      <!-- Add Decision -->
-      <section class="card">
-        <div class="card-head">
+      <!-- FORM -->
+      <section class="card form-card">
+        <div class="form-head">
           <h2>Add a decision</h2>
-          <button class="btn ghost" id="clear-all" type="button">Clear all</button>
+          <div class="form-actions">
+            <button class="btn btn-ghost" id="clearAll" type="button">Clear all</button>
+          </div>
         </div>
 
-        <form id="decision-form" class="form-grid">
-          <div class="field">
-            <label for="type">Decision type</label>
-            <select id="type">
-              <option>Hiring</option>
-              <option>Marketing</option>
-              <option>Pricing</option>
-              <option>Product</option>
-              <option>Partnership</option>
-              <option>Operations</option>
-              <option>Finance</option>
-              <option>Other</option>
-            </select>
+        <form id="decisionForm" class="form">
+          <div class="grid-3">
+            <div class="field">
+              <label for="type">Decision type</label>
+              <select id="type" required>
+                <option value="Hiring">Hiring</option>
+                <option value="Marketing">Marketing</option>
+                <option value="Pricing">Pricing</option>
+                <option value="Product">Product</option>
+                <option value="Ops">Ops</option>
+                <option value="Finance">Finance</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="status">Status</label>
+              <select id="status" required>
+                <option value="Proposed">Proposed</option>
+                <option value="In Review">In Review</option>
+                <option value="Approved">Approved</option>
+                <option value="Rejected">Rejected</option>
+                <option value="Reviewed">Reviewed</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="impact">Impact</label>
+              <select id="impact" required>
+                <option value="Low">Low</option>
+                <option value="Medium" selected>Medium</option>
+                <option value="High">High</option>
+              </select>
+            </div>
           </div>
 
-          <div class="field">
-            <label for="status">Status</label>
-            <select id="status">
-              <option>Proposed</option>
-              <option>In progress</option>
-              <option>Reviewed</option>
-            </select>
+          <div class="grid-2">
+            <div class="field">
+              <label for="question">Decision question</label>
+              <input
+                id="question"
+                type="text"
+                placeholder="e.g., Hire a senior engineer this quarter?"
+                required
+              />
+            </div>
+
+            <div class="field">
+              <label for="recommendation">Recommendation</label>
+              <input
+                id="recommendation"
+                type="text"
+                placeholder="e.g., Yes, with guardrails"
+                required
+              />
+            </div>
           </div>
 
-          <div class="field">
-            <label for="impact">Impact</label>
-            <select id="impact">
-              <option>Low</option>
-              <option selected>Medium</option>
-              <option>High</option>
-            </select>
+          <div class="grid-3">
+            <div class="field">
+              <label for="confidence">Confidence (0–100)</label>
+              <input id="confidence" type="number" min="0" max="100" placeholder="e.g., 68" required />
+            </div>
+
+            <div class="field">
+              <label for="reviewDate">Review date</label>
+              <input id="reviewDate" type="date" required />
+              <div class="hint">Tip: 7/30/90-day reviews create accountability.</div>
+            </div>
+
+            <div class="field">
+              <label for="reason">Reason / Evidence</label>
+              <textarea
+                id="reason"
+                rows="3"
+                placeholder="Why? What data supports this? Include assumptions and guardrails."
+                required
+              ></textarea>
+            </div>
           </div>
 
-          <div class="field span-2">
-            <label for="question">Decision question</label>
-            <input id="question" type="text" placeholder="e.g., Hire a senior engineer this quarter?" />
-          </div>
+          <details class="advanced">
+            <summary>Advanced metrics (optional)</summary>
 
-          <div class="field span-2">
-            <label for="recommendation">Recommendation</label>
-            <input id="recommendation" type="text" placeholder="e.g., Yes, with guardrails" />
-          </div>
+            <div class="grid-4">
+              <div class="field">
+                <label for="runway">Runway (months)</label>
+                <input id="runway" type="number" min="0" step="1" placeholder="e.g., 6" />
+              </div>
 
-          <div class="field">
-            <label for="confidence">Confidence (0–100)</label>
-            <input id="confidence" type="number" min="0" max="100" placeholder="e.g., 68" />
-          </div>
+              <div class="field">
+                <label for="growth">Growth % (MoM)</label>
+                <input id="growth" type="number" step="0.1" placeholder="e.g., 12" />
+              </div>
 
-          <div class="field">
-            <label for="runway">Runway (months)</label>
-            <input id="runway" type="number" min="0" step="1" placeholder="e.g., 6" />
-          </div>
+              <div class="field">
+                <label for="ltvCac">LTV / CAC</label>
+                <input id="ltvCac" type="number" step="0.1" placeholder="e.g., 3.2" />
+              </div>
 
-          <div class="field">
-            <label for="growth">Growth % (MoM)</label>
-            <input id="growth" type="number" step="0.1" placeholder="e.g., 12" />
-          </div>
+              <div class="field">
+                <label for="guardrails">Guardrails</label>
+                <input id="guardrails" type="text" placeholder="e.g., cap spend, milestone gate" />
+              </div>
+            </div>
+          </details>
 
-          <div class="field">
-            <label for="ltvcac">LTV / CAC</label>
-            <input id="ltvcac" type="number" step="0.1" placeholder="e.g., 3.2" />
-          </div>
-
-          <div class="field span-2">
-            <label for="reviewDate">Review date</label>
-            <input id="reviewDate" type="date" />
-            <div class="hint">Tip: 7/30/90-day reviews create accountability.</div>
-          </div>
-
-          <div class="field span-2">
-            <label for="reason">Reason / Evidence</label>
-            <textarea id="reason" rows="3" placeholder="Why? What data supports this? Include assumptions and guardrails."></textarea>
-          </div>
-
-          <div class="actions">
-            <button class="btn primary" id="add" type="submit">Add decision</button>
+          <div class="form-footer">
+            <button class="btn btn-primary" id="addDecision" type="submit">Add decision</button>
           </div>
         </form>
       </section>
 
-      <!-- List / Filters -->
-      <section class="card">
-        <div class="list-head">
+      <!-- LIST CONTROLS -->
+      <section class="card list-head">
+        <div class="list-title">
           <h2>Decisions</h2>
-          <div class="filters">
-            <select id="filter-status">
-              <option value="all">All statuses</option>
-              <option value="Proposed">Proposed</option>
-              <option value="In progress">In progress</option>
-              <option value="Reviewed">Reviewed</option>
-            </select>
-
-            <select id="filter-risk">
-              <option value="all">All risk</option>
-              <option value="Low">Low</option>
-              <option value="Medium">Medium</option>
-              <option value="High">High</option>
-            </select>
-
-            <input id="search" type="search" placeholder="Search decisions..." />
-          </div>
         </div>
 
-        <div id="decisions"></div>
+        <div class="list-controls">
+          <select id="filterStatus" class="mini">
+            <option value="ALL">All statuses</option>
+            <option value="Proposed">Proposed</option>
+            <option value="In Review">In Review</option>
+            <option value="Approved">Approved</option>
+            <option value="Rejected">Rejected</option>
+            <option value="Reviewed">Reviewed</option>
+          </select>
+
+          <select id="filterRisk" class="mini">
+            <option value="ALL">All risk</option>
+            <option value="HIGH">High risk</option>
+            <option value="OK">Not high risk</option>
+          </select>
+
+          <input id="search" class="mini search" type="search" placeholder="Search decisions…" />
+        </div>
       </section>
+
+      <!-- DECISIONS RENDER HERE -->
+      <section id="decisions" class="decisions"></section>
+
+      <footer class="footer">
+        <div class="footer-card">
+          If you can see this, styles are working.
+        </div>
+      </footer>
     </div>
 
     <script src="app.js"></script>
   </body>
 </html>
+
