@@ -1,19 +1,32 @@
 :root{
+  /* LIGHT */
   --bg:#f4f7fb;
   --card:#ffffff;
   --text:#0f172a;
   --muted:#64748b;
-  --line:#e5e7eb;
+  --line:rgba(15,23,42,.10);
   --shadow:0 10px 30px rgba(15,23,42,.08);
-  --radius:18px;
-  --radius2:14px;
 
   --primary:#0f172a;
-  --primary2:#111827;
 
   --ok:#16a34a;
   --warn:#f59e0b;
   --risk:#ef4444;
+
+  --radius:18px;
+  --radius2:14px;
+}
+
+[data-theme="dark"]{
+  /* DARK */
+  --bg:#0b1220;
+  --card:rgba(255,255,255,.06);
+  --text:#e5e7eb;
+  --muted:#a3b1c6;
+  --line:rgba(255,255,255,.10);
+  --shadow:0 14px 40px rgba(0,0,0,.45);
+
+  --primary:#e5e7eb;
 }
 
 *{box-sizing:border-box}
