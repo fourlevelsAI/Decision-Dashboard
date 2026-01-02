@@ -1,367 +1,389 @@
-/* V.4.3.2 — Decision Dashboard (Vanilla JS)
-   - Stores decisions in localStorage
-   - Renders decision cards
-   - Computes KPI stats (Open, Upcoming 14d, High Risk, Avg Confidence)
-   - Filters: status + risk + search
-*/
+ /* ====== Decision Dashboard V.4.3.2 ====== */
 
 const STORAGE_KEY = "v432_decisions";
 
+const $ = (id) => document.getElementById(id);
+
 const els = {
-  form: document.getElementById("decisionForm"),
-  clearAll: document.getElementById("clearAll"),
+  // stats
+  statOpen: $("stat-open"),
+  statUpcoming: $("stat-upcoming"),
+  statRisk: $("stat-risk"),
+  statAvg: $("stat-avg"),
 
-  type: document.getElementById("type"),
-  status: document.getElementById("status"),
-  impact: document.getElementById("impact"),
-  question: document.getElementById("question"),
-  recommendation: document.getElementById("recommendation"),
-  confidence: document.getElementById("confidence"),
-  reviewDate: document.getElementById("reviewDate"),
-  reason: document.getElementById("reason"),
+  // filters
+  filterStatus: $("filter-status"),
+  filterRisk: $("filter-risk"),
+  search: $("search"),
 
-  runway: document.getElementById("runway"),
-  growth: document.getElementById("growth"),
-  ltvCac: document.getElementById("ltvCac"),
-  guardrails: document.getElementById("guardrails"),
+  // list
+  list: $("decisions-list"),
 
-  filterStatus: document.getElementById("filterStatus"),
-  filterRisk: document.getElementById("filterRisk"),
-  search: document.getElementById("search"),
+  // form (match these IDs to your form inputs)
+  type: $("type"),
+  status: $("status"),
+  impact: $("impact"),
+  question: $("question"),
+  recommendation: $("recommendation"),
+  confidence: $("confidence"),
+  reviewDate: $("reviewDate"),
+  reason: $("reason"),
+  runway: $("runway"),
+  growth: $("growth"),
+  ltvCac: $("ltvCac"),
+  guardrails: $("guardrails"),
 
-  list: document.getElementById("decisions"),
-
-  kpiOpen: document.getElementById("kpi-open"),
-  kpiOpenSub: document.getElementById("kpi-open-sub"),
-  kpiUpcoming: document.getElementById("kpi-upcoming"),
-  kpiUpcomingSub: document.getElementById("kpi-upcoming-sub"),
-  kpiRisk: document.getElementById("kpi-risk"),
-  kpiRiskSub: document.getElementById("kpi-risk-sub"),
-  kpiAvg: document.getElementById("kpi-avg"),
-  kpiAvgSub: document.getElementById("kpi-avg-sub"),
+  addBtn: $("add"),
+  clearAllBtn: $("clearAll"),
 };
 
+let decisions = load();
+
+/* ---------- helpers ---------- */
+
 function uid() {
-  return Math.random().toString(16).slice(2) + Date.now().toString(16);
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
-function todayISO() {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+function parseDate(value) {
+  // supports yyyy-mm-dd or dd/mm/yyyy
+  if (!value) return null;
+
+  // yyyy-mm-dd (native date input)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [y, m, d] = value.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  }
+
+  // dd/mm/yyyy
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
+    const [d, m, y] = value.split("/").map(Number);
+    return new Date(y, m - 1, d);
+  }
+
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
-function parseNum(v) {
-  if (v === "" || v === null || v === undefined) return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
+function daysFromNow(date) {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const ms = target - start;
+  return Math.round(ms / 86400000);
+}
+
+function clampInt(n, min, max) {
+  const x = parseInt(n, 10);
+  if (Number.isNaN(x)) return null;
+  return Math.min(max, Math.max(min, x));
+}
+
+function toNum(n) {
+  const x = Number(n);
+  return Number.isFinite(x) ? x : null;
+}
+
+/* ---------- storage ---------- */
+
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(decisions));
 }
 
 function load() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    const data = raw ? JSON.parse(raw) : [];
-    return Array.isArray(data) ? data : [];
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
   } catch {
     return [];
   }
 }
 
-function save(decisions) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(decisions));
+/* ---------- business rules ---------- */
+
+function isClosed(d) {
+  return d.status === "Reviewed" || d.status === "Rejected";
 }
 
-function isUpcomingWithinDays(isoDate, days) {
-  if (!isoDate) return false;
-  const d = new Date(isoDate + "T00:00:00");
-  const now = new Date();
-  const end = new Date();
-  end.setDate(now.getDate() + days);
-
-  // compare date-only
-  const dd = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const nn = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const ee = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-
-  return dd >= nn && dd <= ee;
+function isOpen(d) {
+  return !isClosed(d);
 }
 
-// Risk rule (simple + predictable):
-// - confidence < 60 => high risk
-// - OR impact=High AND confidence < 70 => high risk
-// - OR recommendation/guardrails missing when impact=High => high risk
-function isHighRisk(decision) {
-  const c = Number(decision.confidence ?? 0);
-  const impact = decision.impact;
+function isHighRisk(d) {
+  const conf = typeof d.confidence === "number" ? d.confidence : 0;
+  const noGuardrails = !d.guardrails || d.guardrails.trim().length < 3;
 
-  if (c < 60) return true;
-  if (impact === "High" && c < 70) return true;
-  if (impact === "High") {
-    const hasGuardrails = (decision.guardrails || "").trim().length > 0;
-    const rec = (decision.recommendation || "").toLowerCase();
-    if (!hasGuardrails && !rec.includes("guard")) return true;
-  }
+  if (!isOpen(d)) return false;
+
+  if (conf < 50) return true;
+  if (d.impact === "High" && conf < 70) return true;
+  if (noGuardrails && d.impact !== "Low") return true;
+
   return false;
 }
 
-function computeKPIs(decisions) {
-  const open = decisions.filter(d => d.status !== "Reviewed").length;
-
-  const upcoming = decisions.filter(d => d.status !== "Reviewed" && isUpcomingWithinDays(d.reviewDate, 14)).length;
-
-  const highRisk = decisions.filter(d => d.status !== "Reviewed" && isHighRisk(d)).length;
-
-  const confidences = decisions.map(d => Number(d.confidence)).filter(n => Number.isFinite(n));
-  const avg = confidences.length ? Math.round(confidences.reduce((a,b)=>a+b,0) / confidences.length) : null;
-
-  return { open, upcoming, highRisk, avg };
+function riskLabel(d) {
+  return isHighRisk(d) ? "High risk" : "OK";
 }
 
-function setKPIs(kpis) {
-  els.kpiOpen.textContent = String(kpis.open);
-  els.kpiUpcoming.textContent = String(kpis.upcoming);
-  els.kpiRisk.textContent = String(kpis.highRisk);
-  els.kpiAvg.textContent = kpis.avg === null ? "—" : `${kpis.avg}%`;
-
-  els.kpiOpenSub.textContent = kpis.open === 0 ? "Not reviewed yet" : "Active decisions";
-  els.kpiUpcomingSub.textContent = "Next 14 days";
-  els.kpiRiskSub.textContent = "Needs guardrails";
-  els.kpiAvgSub.textContent = "Across all decisions";
+function riskClass(d) {
+  return isHighRisk(d) ? "risk-high" : "risk-ok";
 }
 
-function matchesSearch(d, q) {
-  if (!q) return true;
-  const s = q.toLowerCase();
-  return (
-    (d.question || "").toLowerCase().includes(s) ||
-    (d.recommendation || "").toLowerCase().includes(s) ||
-    (d.reason || "").toLowerCase().includes(s) ||
-    (d.type || "").toLowerCase().includes(s) ||
-    (d.status || "").toLowerCase().includes(s)
-  );
+/* ---------- stats ---------- */
+
+function computeStats() {
+  const open = decisions.filter(isOpen);
+
+  const upcoming = open.filter((d) => {
+    const dt = parseDate(d.reviewDate);
+    if (!dt) return false;
+    const diff = daysFromNow(dt);
+    return diff >= 0 && diff <= 14;
+  });
+
+  const highRisk = open.filter(isHighRisk);
+
+  const avg = (() => {
+    const nums = open
+      .map((d) => (typeof d.confidence === "number" ? d.confidence : null))
+      .filter((x) => x !== null);
+
+    if (!nums.length) return null;
+    const sum = nums.reduce((a, b) => a + b, 0);
+    return Math.round(sum / nums.length);
+  })();
+
+  return {
+    openCount: open.length,
+    upcomingCount: upcoming.length,
+    riskCount: highRisk.length,
+    avgConfidence: avg,
+  };
 }
 
-function applyFilters(decisions) {
-  const status = els.filterStatus.value;
-  const risk = els.filterRisk.value;
-  const q = (els.search.value || "").trim();
+function renderStats() {
+  const s = computeStats();
+  if (els.statOpen) els.statOpen.textContent = String(s.openCount);
+  if (els.statUpcoming) els.statUpcoming.textContent = String(s.upcomingCount);
+  if (els.statRisk) els.statRisk.textContent = String(s.riskCount);
+  if (els.statAvg) els.statAvg.textContent = s.avgConfidence === null ? "—" : `${s.avgConfidence}%`;
+}
 
-  return decisions.filter(d => {
-    if (status !== "ALL" && d.status !== status) return false;
+/* ---------- filtering ---------- */
 
-    const hr = isHighRisk(d);
-    if (risk === "HIGH" && !hr) return false;
-    if (risk === "OK" && hr) return false;
+function getFiltered() {
+  const status = els.filterStatus?.value?.trim() || "";
+  const risk = els.filterRisk?.value?.trim() || "";
+  const q = (els.search?.value || "").trim().toLowerCase();
 
-    if (!matchesSearch(d, q)) return false;
+  return decisions.filter((d) => {
+    if (status && d.status !== status) return false;
+
+    if (risk === "high" && !isHighRisk(d)) return false;
+    if (risk === "ok" && isHighRisk(d)) return false;
+
+    if (q) {
+      const hay = [
+        d.type, d.status, d.impact, d.question, d.recommendation, d.reason, d.guardrails,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
 
     return true;
   });
 }
 
-function fmtDate(iso) {
-  if (!iso) return "—";
-  const d = new Date(iso + "T00:00:00");
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  return `${dd}/${mm}/${yyyy}`;
-}
+/* ---------- rendering list ---------- */
 
-function el(tag, cls, text) {
-  const n = document.createElement(tag);
-  if (cls) n.className = cls;
-  if (text !== undefined) n.textContent = text;
-  return n;
-}
+function renderList() {
+  if (!els.list) return;
 
-function render(decisions) {
-  // KPIs from ALL decisions (not filtered) — this is what dashboards normally do
-  setKPIs(computeKPIs(decisions));
+  const rows = getFiltered();
 
-  // List view from filtered decisions
-  const filtered = applyFilters(decisions);
-
-  els.list.innerHTML = "";
-  if (!filtered.length) {
-    const empty = el("div", "card decision-card");
-    empty.appendChild(el("div", "decision-title", "No decisions match your filters."));
-    empty.appendChild(el("div", "reason", "Add a decision above or adjust filters."));
-    els.list.appendChild(empty);
+  if (!rows.length) {
+    els.list.innerHTML = `
+      <div class="empty">
+        <strong>No decisions match your filters.</strong>
+        <div class="muted">Add a decision above or adjust filters.</div>
+      </div>
+    `;
     return;
   }
 
-  // Sort: soonest review first, then newest
-  filtered.sort((a, b) => {
-    const ad = a.reviewDate ? new Date(a.reviewDate).getTime() : Infinity;
-    const bd = b.reviewDate ? new Date(b.reviewDate).getTime() : Infinity;
-    if (ad !== bd) return ad - bd;
-    return (b.createdAt || 0) - (a.createdAt || 0);
-  });
+  els.list.innerHTML = rows
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+    .map((d) => {
+      const conf = typeof d.confidence === "number" ? `${d.confidence}%` : "—";
+      const review = d.reviewDate ? d.reviewDate : "—";
+      const meta = [
+        d.runway != null ? `Runway: ${d.runway}m` : null,
+        d.growth != null ? `MoM: ${d.growth}%` : null,
+        d.ltvCac != null ? `LTV/CAC: ${d.ltvCac}` : null,
+        d.guardrails ? `Guardrails: ${d.guardrails}` : null,
+      ].filter(Boolean).join(" · ");
 
-  filtered.forEach(d => {
-    const card = el("div", "card decision-card");
+      return `
+        <article class="decision-card">
+          <div class="decision-top">
+            <div>
+              <div class="decision-title">Decision</div>
+              <div class="decision-q">${escapeHtml(d.question || "—")}</div>
+            </div>
 
-    const top = el("div", "decision-top");
-    const left = el("div");
+            <div class="badges">
+              <span class="badge">${escapeHtml(d.type || "—")}</span>
+              <span class="badge">${escapeHtml(d.status || "—")}</span>
+              <span class="badge">Impact: ${escapeHtml(d.impact || "—")}</span>
+              <span class="badge ${riskClass(d)}">${riskLabel(d)}</span>
+            </div>
+          </div>
 
-    const title = el("h3", "decision-title", "Decision");
-    const question = el("div", "", d.question || "—");
-    question.style.marginTop = "6px";
-    question.style.fontWeight = "800";
+          <div class="decision-grid">
+            <div class="box">
+              <div class="k">RECOMMENDATION</div>
+              <div class="v">${escapeHtml(d.recommendation || "—")}</div>
+            </div>
+            <div class="box">
+              <div class="k">CONFIDENCE</div>
+              <div class="v">${conf}</div>
+            </div>
+          </div>
 
-    left.appendChild(title);
-    left.appendChild(question);
+          <div class="reason">
+            <div><span class="muted">Reason:</span> ${escapeHtml(d.reason || "—")}</div>
+            <div><span class="muted">Review:</span> ${escapeHtml(review)}</div>
+            ${meta ? `<div class="muted small">${escapeHtml(meta)}</div>` : ""}
+          </div>
 
-    const meta = el("div", "meta");
-    meta.appendChild(el("span", "chip", d.type));
-    meta.appendChild(el("span", "chip", d.status));
-    meta.appendChild(el("span", "chip", `Impact: ${d.impact}`));
+          <div class="actions">
+            <button class="btn" data-action="review" data-id="${d.id}">Mark reviewed</button>
+            <button class="btn danger" data-action="delete" data-id="${d.id}">Delete</button>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
 
-    const riskChip = el("span", `chip ${isHighRisk(d) ? "high" : "ok"}`, isHighRisk(d) ? "High Risk" : "OK");
-    meta.appendChild(riskChip);
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
 
-    top.appendChild(left);
-    top.appendChild(meta);
+/* ---------- events ---------- */
 
-    const body = el("div", "decision-body");
+function addDecisionFromForm() {
+  const confidence = clampInt(els.confidence?.value, 0, 100);
+  const runway = clampInt(els.runway?.value, 0, 120);
+  const growth = clampInt(els.growth?.value, -100, 1000);
+  const ltvCac = toNum(els.ltvCac?.value);
 
-    const b1 = el("div", "block");
-    b1.appendChild(el("div", "label", "RECOMMENDATION"));
-    b1.appendChild(el("div", "value", d.recommendation || "—"));
+  const d = {
+    id: uid(),
+    createdAt: Date.now(),
 
-    const b2 = el("div", "block");
-    b2.appendChild(el("div", "label", "CONFIDENCE"));
-    b2.appendChild(el("div", "value", `${d.confidence ?? "—"}${d.confidence !== null && d.confidence !== undefined ? "%" : ""}`));
+    type: els.type?.value || "General",
+    status: els.status?.value || "Proposed",
+    impact: els.impact?.value || "Medium",
 
-    body.appendChild(b1);
-    body.appendChild(b2);
+    question: (els.question?.value || "").trim(),
+    recommendation: (els.recommendation?.value || "").trim(),
+    confidence: confidence ?? null,
+    reviewDate: (els.reviewDate?.value || "").trim(),
 
-    const reason = el("div", "reason", `Reason: ${d.reason || "—"}`);
+    reason: (els.reason?.value || "").trim(),
 
-    const row = el("div", "row");
-    row.appendChild(el("div", "", `Review: `));
-    const rb = el("b", "", fmtDate(d.reviewDate));
-    row.lastChild.appendChild(rb);
+    runway: runway ?? null,
+    growth: growth ?? null,
+    ltvCac: ltvCac ?? null,
+    guardrails: (els.guardrails?.value || "").trim(),
+  };
 
-    const extras = [];
-    if (d.runwayMonths !== null) extras.push(`Runway: ${d.runwayMonths}m`);
-    if (d.growthMoM !== null) extras.push(`MoM: ${d.growthMoM}%`);
-    if (d.ltvCac !== null) extras.push(`LTV/CAC: ${d.ltvCac}`);
-    if ((d.guardrails || "").trim()) extras.push(`Guardrails: ${d.guardrails}`);
+  // minimal validation
+  if (!d.question) {
+    alert("Decision question is required.");
+    return;
+  }
 
-    if (extras.length) {
-      const extraLine = el("div", "row");
-      extraLine.appendChild(el("div", "", extras.join(" • ")));
-      card.appendChild(top);
-      card.appendChild(body);
-      card.appendChild(reason);
-      card.appendChild(row);
-      card.appendChild(extraLine);
-    } else {
-      card.appendChild(top);
-      card.appendChild(body);
-      card.appendChild(reason);
-      card.appendChild(row);
-    }
+  decisions.unshift(d);
+  save();
+  renderAll();
+  clearForm();
+}
 
-    const actions = el("div", "actions");
-    const del = el("button", "btn small", "Delete");
-    del.type = "button";
-    del.addEventListener("click", () => {
-      const next = load().filter(x => x.id !== d.id);
-      save(next);
-      render(next);
-    });
-
-    const markReviewed = el("button", "btn small", d.status === "Reviewed" ? "Mark active" : "Mark reviewed");
-    markReviewed.type = "button";
-    markReviewed.addEventListener("click", () => {
-      const all = load();
-      const idx = all.findIndex(x => x.id === d.id);
-      if (idx === -1) return;
-
-      all[idx].status = all[idx].status === "Reviewed" ? "Proposed" : "Reviewed";
-      save(all);
-      render(all);
-    });
-
-    actions.appendChild(markReviewed);
-    actions.appendChild(del);
-    card.appendChild(actions);
-
-    els.list.appendChild(card);
+function clearForm() {
+  ["question", "recommendation", "confidence", "reason", "runway", "growth", "ltvCac", "guardrails"].forEach((k) => {
+    if (els[k]) els[k].value = "";
   });
 }
 
-function resetFormKeepDefaults() {
-  els.question.value = "";
-  els.recommendation.value = "";
-  els.confidence.value = "";
-  els.reason.value = "";
+function handleListClick(e) {
+  const btn = e.target.closest("button[data-action]");
+  if (!btn) return;
 
-  els.runway.value = "";
-  els.growth.value = "";
-  els.ltvCac.value = "";
-  els.guardrails.value = "";
+  const id = btn.getAttribute("data-id");
+  const action = btn.getAttribute("data-action");
+  const idx = decisions.findIndex((d) => d.id === id);
+  if (idx === -1) return;
 
-  els.reviewDate.value = todayISO();
-  els.question.focus();
+  if (action === "delete") {
+    decisions.splice(idx, 1);
+    save();
+    renderAll();
+    return;
+  }
+
+  if (action === "review") {
+    decisions[idx].status = "Reviewed";
+    decisions[idx].reviewedAt = Date.now();
+    save();
+    renderAll();
+    return;
+  }
 }
 
-function init() {
-  // default review date = today
-  els.reviewDate.value = todayISO();
+function clearAll() {
+  if (!confirm("Clear all decisions?")) return;
+  decisions = [];
+  save();
+  renderAll();
+}
 
-  // Load initial
-  const decisions = load();
-  render(decisions);
+function renderAll() {
+  renderStats();
+  renderList();
+}
 
-  // Add decision
-  els.form.addEventListener("submit", (e) => {
+/* ---------- init ---------- */
+
+function bind() {
+  els.addBtn?.addEventListener("click", (e) => {
     e.preventDefault();
-
-    const d = {
-      id: uid(),
-      type: els.type.value,
-      status: els.status.value,
-      impact: els.impact.value,
-      question: els.question.value.trim(),
-      recommendation: els.recommendation.value.trim(),
-      confidence: parseNum(els.confidence.value),
-      reviewDate: els.reviewDate.value,
-      reason: els.reason.value.trim(),
-
-      runwayMonths: parseNum(els.runway.value),
-      growthMoM: parseNum(els.growth.value),
-      ltvCac: parseNum(els.ltvCac.value),
-      guardrails: (els.guardrails.value || "").trim(),
-
-      createdAt: Date.now(),
-    };
-
-    const all = load();
-    all.push(d);
-    save(all);
-
-    render(all);
-    resetFormKeepDefaults();
+    addDecisionFromForm();
   });
 
-  // Clear all
-  els.clearAll.addEventListener("click", () => {
-    if (!confirm("Clear all decisions? This cannot be undone.")) return;
-    save([]);
-    render([]);
+  els.clearAllBtn?.addEventListener("click", (e) => {
+    e.preventDefault();
+    clearAll();
   });
 
-  // Filters
-  [els.filterStatus, els.filterRisk, els.search].forEach(x => {
-    x.addEventListener("input", () => render(load()));
-    x.addEventListener("change", () => render(load()));
+  els.list?.addEventListener("click", handleListClick);
+
+  [els.filterStatus, els.filterRisk, els.search].forEach((el) => {
+    el?.addEventListener("input", renderAll);
+    el?.addEventListener("change", renderAll);
   });
 }
 
-init();
+bind();
+renderAll();
+
