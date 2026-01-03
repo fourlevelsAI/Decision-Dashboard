@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>V.4.3.2 — System Overview</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+
+  <body>
+    <div class="container">
+      <!-- TOP -->
+      <header class="top">
+        <div>
+          <h1>V.4.3.2</h1>
+          <p class="sub">
+            A decision intelligence system for founders and professionals.
+          </p>
+        </div>
+
+        <div class="top-actions">
+          <a class="btn ghost" href="index.html">Decision Dashboard</a>
+          <div class="pill">Beta</div>
+        </div>
+      </header>
+
+      <!-- HERO -->
+      <section class="card" style="padding:22px">
+        <h2>Why this exists</h2>
+        <p class="reason">
+          Most founders don’t fail because of bad ideas.
+          They fail because decisions pile up without structure, review,
+          or measurable confidence.
+        </p>
+
+        <p class="reason">
+          V.4.3.2 turns decisions into tracked assets — with confidence,
+          risk, review cadence, and accountability.
+        </p>
+      </section>
+
+      <!-- STATS -->
+      <section class="kpi-grid" style="margin-top:14px">
+        <div class="card kpi">
+          <div class="kpi-title">PEOPLE TESTING</div>
+          <div class="kpi-value" id="testerCount">—</div>
+          <div class="kpi-sub">Early access users</div>
+        </div>
+
+        <div class="card kpi">
+          <div class="kpi-title">VERSION</div>
+          <div class="kpi-value">4.3.2</div>
+          <div class="kpi-sub">Foundational build</div>
+        </div>
+
+        <div class="card kpi">
+          <div class="kpi-title">FOCUS</div>
+          <div class="kpi-value">DECISIONS</div>
+          <div class="kpi-sub">Not tasks. Not notes.</div>
+        </div>
+
+        <div class="card kpi">
+          <div class="kpi-title">STATUS</div>
+          <div class="kpi-value">BETA</div>
+          <div class="kpi-sub">Actively evolving</div>
+        </div>
+      </section>
+
+      <!-- HOW IT WORKS -->
+      <section class="card" style="padding:22px; margin-top:14px">
+        <h2>How it works</h2>
+
+        <ul class="reason">
+          <li>Log a decision with confidence and impact</li>
+          <li>Assign a review date</li>
+          <li>Track risk automatically</li>
+          <li>Review decisions instead of forgetting them</li>
+        </ul>
+
+        <a class="btn primary" href="index.html" style="margin-top:12px">
+          Enter Decision Dashboard →
+        </a>
+      </section>
+    </div>
+
+    <script>
+      // Simple tester counter (localStorage-based MVP)
+      const KEY = "v432_testers";
+
+      let count = Number(localStorage.getItem(KEY) || 0);
+
+      if (!localStorage.getItem("v432_seen")) {
+        count += 1;
+        localStorage.setItem(KEY, count);
+        localStorage.setItem("v432_seen", "yes");
+      }
+
+      document.getElementById("testerCount").textContent = count;
+    </script>
+  </body>
+</html>
