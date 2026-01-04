@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Decision Review – V.4.3.2</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="container">
+
+    <header class="top">
+      <div class="top-left">
+        <h1>Decision Review</h1>
+        <p class="sub">
+          This is where judgment is calibrated.  
+          Be precise. Be honest. Learn.
+        </p>
+      </div>
+
+      <div class="top-actions">
+        <a class="btn ghost" href="index.html">Dashboard</a>
+        <button class="btn ghost icon-btn" id="themeToggle">◐</button>
+        <span class="pill">V.4.3.2</span>
+      </div>
+    </header>
+
+    <!-- DECISION CONTEXT -->
+    <section class="card" id="decisionContext">
+      <h2>Decision</h2>
+
+      <p class="muted" id="review-question">
+        Loading decision…
+      </p>
+
+      <div class="decision-meta" id="review-meta"></div>
+    </section>
+
+    <!-- REVIEW FORM -->
+    <section class="card">
+      <h2>Review</h2>
+
+      <div class="form-grid">
+        <div class="full">
+          <label>Outcome</label>
+          <select id="outcome">
+            <option value="">Select outcome</option>
+            <option>Better than expected</option>
+            <option>As expected</option>
+            <option>Worse than expected</option>
+          </select>
+        </div>
+
+        <div class="full">
+          <label>What actually happened?</label>
+          <textarea
+            id="outcomeNotes"
+            placeholder="Describe reality without justification."
+            rows="3"
+          ></textarea>
+        </div>
+
+        <div class="full">
+          <label>What would you change next time?</label>
+          <textarea
+            id="learning"
+            placeholder="One concrete adjustment. No theory."
+            rows="2"
+          ></textarea>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" id="submitReview">
+          Close review
+        </button>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <p>
+        Reviewing a decision is optional only once.  
+        Skipping it repeatedly is how judgment degrades.
+      </p>
+    </footer>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
