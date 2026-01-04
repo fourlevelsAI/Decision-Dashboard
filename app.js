@@ -1,4 +1,10 @@
- /* V.4.3.2 – app.js (shared by index.html + overview.html) */
+ /* V.4.3.2 – app.js (shared by index.html + overview.html)
+   Updates:
+   - Overdue mechanic (review date passed + not reviewed) => "OVERDUE" badge + counted as risk signal
+   - "Ignored / Not Reviewed" treated as failure state => counted as risk signal + explicit badge
+   - Binary guardrails (guardrailsDefined) used for High Impact decisions
+   - Stats adjusted: Open excludes Ignored + Rejected; Due Soon excludes Ignored + Rejected
+*/
 
 const STORAGE_KEY = "v432_decisions";
 const THEME_KEY = "v432_theme";
@@ -32,23 +38,62 @@ function daysBetween(aISO, bISO) {
   return Math.round(ms / (1000 * 60 * 60 * 24));
 }
 
+function isIgnoredStatus(status) {
+  return String(status || "").trim() === "Ignored / Not Reviewed";
+}
+
+function isRejectedStatus(status) {
+  return String(status || "").trim() === "Rejected";
+}
+
+function isHighImpact(d) {
+  return String(d.impact || "").toLowerCase() === "high";
+}
+
+function isOverdue(d) {
+  if (d.reviewed) return false;
+  if (!d.reviewDate) return false;
+  const diff = daysBetween(d.reviewDate, todayISO()); // positive => today after review date
+  return diff !== null && diff > 0;
+}
+
 function computeHighRisk(d) {
   const conf = Number(d.confidence ?? 0);
-  const impactHigh = (d.impact || "").toLowerCase() === "high";
-  const noGuardrails = impactHigh && (!d.guardrails || String(d.guardrails).trim().length === 0);
-  const lowConfidence = conf > 0 && conf < 60;
-  return impactHigh || lowConfidence || noGuardrails;
+  const impactHigh = isHighImpact(d);
+
+  // Binary guardrails: for High impact, missing guardrailsDefined is a risk
+  const guardrailsDefined = Boolean(d.guardrailsDefined);
+  const missingGuardrails = impactHigh && !guardrailsDefined;
+
+  // Confidence risk only if a valid number exists
+  const lowConfidence = Number.isFinite(conf) && conf >= 0 && conf < 60;
+
+  // High impact is inherently higher risk; keep it as a signal
+  return impactHigh || lowConfidence || missingGuardrails;
 }
 
 function computeUpcoming(d) {
+  if (d.reviewed) return false;
+  if (!d.reviewDate) return false;
   const diff = daysBetween(todayISO(), d.reviewDate);
   return diff !== null && diff >= 0 && diff <= 14;
 }
 
+function computeRiskSignal(d) {
+  // “Risk” is now a SYSTEM signal:
+  // - inherent risk (high impact / low confidence / missing guardrails)
+  // - overdue reviews (loop not closed)
+  // - ignored decisions (explicit failure state)
+  return computeHighRisk(d) || isOverdue(d) || isIgnoredStatus(d.status);
+}
+
 function avgConfidence(list) {
-  const nums = list.map(x => Number(x.confidence)).filter(n => Number.isFinite(n) && n >= 0);
+  const nums = list
+    .map(x => Number(x.confidence))
+    .filter(n => Number.isFinite(n) && n >= 0);
+
   if (!nums.length) return null;
-  const sum = nums.reduce((a,b)=>a+b,0);
+  const sum = nums.reduce((a, b) => a + b, 0);
   return Math.round(sum / nums.length);
 }
 
@@ -77,9 +122,26 @@ function initTheme() {
 function updateStats() {
   const list = loadDecisions();
 
-  const open = list.filter(d => !d.reviewed).length;
-  const upcoming = list.filter(d => !d.reviewed && computeUpcoming(d)).length;
-  const risk = list.filter(d => !d.reviewed && computeHighRisk(d)).length;
+  // Open = decisions that are not reviewed AND not ignored/rejected
+  const open = list.filter(d =>
+    !d.reviewed &&
+    !isIgnoredStatus(d.status) &&
+    !isRejectedStatus(d.status)
+  ).length;
+
+  // Due Soon = not reviewed, not ignored/rejected, review date within 14 days
+  const upcoming = list.filter(d =>
+    !d.reviewed &&
+    !isIgnoredStatus(d.status) &&
+    !isRejectedStatus(d.status) &&
+    computeUpcoming(d)
+  ).length;
+
+  // High Risk = system signal (includes overdue + ignored)
+  const risk = list.filter(d =>
+    !d.reviewed && computeRiskSignal(d)
+  ).length;
+
   const avg = avgConfidence(list);
 
   if ($("stat-open")) $("stat-open").textContent = String(open);
@@ -99,41 +161,61 @@ function renderDecisions() {
   const filterRisk = $("filterRisk")?.value || "All risk";
   const q = ($("search")?.value || "").toLowerCase().trim();
 
-  let filtered = [...list].sort((a,b)=> (b.createdAt || 0) - (a.createdAt || 0));
+  let filtered = [...list].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
   if (filterStatus !== "All statuses") {
     filtered = filtered.filter(d => d.status === filterStatus);
   }
 
   if (filterRisk === "High") {
-    filtered = filtered.filter(d => computeHighRisk(d));
+    filtered = filtered.filter(d => computeRiskSignal(d));
   }
 
   if (q) {
     filtered = filtered.filter(d => {
       const blob = [
         d.type, d.status, d.impact, d.question, d.recommendation, d.reason,
-        d.guardrails, d.reviewDate
+        d.guardrails, d.reviewDate,
+        d.guardrailsDefined ? "guardrails-defined" : "guardrails-missing"
       ].join(" ").toLowerCase();
       return blob.includes(q);
     });
   }
 
   if (!filtered.length) {
+    // Keep your index.html empty-state for “no decisions logged”.
+    // This message is for “filters produce no results”.
     mount.innerHTML = `<p class="empty">No decisions match your filters.</p>`;
     return;
   }
 
   mount.innerHTML = filtered.map(d => {
-    const risk = computeHighRisk(d);
     const conf = Number(d.confidence ?? 0);
-    const tag = risk ? `<span class="badge risk">RISK</span>` : `<span class="badge ok">OK</span>`;
+    const overdue = isOverdue(d);
+    const ignored = isIgnoredStatus(d.status);
+    const riskSignal = computeRiskSignal(d);
 
+    // badges
+    const badges = [];
+    badges.push(`<span class="badge">${escapeHTML(d.type || "—")}</span>`);
+    badges.push(`<span class="badge">${escapeHTML(d.status || "—")}</span>`);
+    badges.push(`<span class="badge">Impact: ${escapeHTML(d.impact || "—")}</span>`);
+
+    if (ignored) badges.push(`<span class="badge risk">IGNORED</span>`);
+    if (overdue) badges.push(`<span class="badge risk">OVERDUE</span>`);
+    if (!ignored && !overdue) badges.push(riskSignal ? `<span class="badge risk">RISK</span>` : `<span class="badge ok">OK</span>`);
+
+    // advanced meta
     const runway = d.runway ? `Runway: ${d.runway}m` : "";
     const growth = (d.growth || d.growth === 0) ? `MoM: ${d.growth}%` : "";
     const ltv = (d.ltv || d.ltv === 0) ? `LTV/CAC: ${d.ltv}` : "";
     const guards = d.guardrails ? `Guardrails: ${d.guardrails}` : "";
-    const meta = [runway, growth, ltv, guards].filter(Boolean).join(" · ");
+    const guardrailsBinary = isHighImpact(d)
+      ? (d.guardrailsDefined ? "Guardrails: Defined" : "Guardrails: Missing")
+      : (d.guardrailsDefined ? "Guardrails: Defined" : "");
+    const meta = [runway, growth, ltv, guardrailsBinary, guards].filter(Boolean).join(" · ");
+
+    const reviewBtnLabel = d.reviewed ? "Reviewed" : "Mark reviewed";
 
     return `
       <div class="decision">
@@ -143,10 +225,7 @@ function renderDecisions() {
             <h3 class="decision-title">${escapeHTML(d.question || "(No question)")}</h3>
           </div>
           <div class="badges">
-            <span class="badge">${escapeHTML(d.type || "—")}</span>
-            <span class="badge">${escapeHTML(d.status || "—")}</span>
-            <span class="badge">Impact: ${escapeHTML(d.impact || "—")}</span>
-            ${tag}
+            ${badges.join("")}
           </div>
         </div>
 
@@ -156,7 +235,7 @@ function renderDecisions() {
             <div class="kvalue">${escapeHTML(d.recommendation || "—")}</div>
           </div>
           <div class="k">
-            <div class="klabel">CONFIDENCE</div>
+            <div class="klabel">CONFIDENCE AT COMMIT</div>
             <div class="kvalue">${Number.isFinite(conf) && conf >= 0 ? `${conf}%` : "—"}</div>
           </div>
         </div>
@@ -168,7 +247,9 @@ function renderDecisions() {
         </div>
 
         <div class="decision-actions">
-          <button class="btn ghost" data-action="review" data-id="${d.id}">${d.reviewed ? "Reviewed" : "Mark reviewed"}</button>
+          <button class="btn ghost" data-action="review" data-id="${d.id}" ${d.reviewed ? "disabled" : ""}>
+            ${reviewBtnLabel}
+          </button>
           <button class="btn ghost" data-action="delete" data-id="${d.id}">Delete</button>
         </div>
       </div>
@@ -191,8 +272,10 @@ function renderDecisions() {
       }
 
       if (action === "review") {
+        // Close loop
         all[idx].reviewed = true;
         all[idx].reviewedAt = Date.now();
+        // If it was "Ignored", keep status as-is (this preserves the failure signal)
         saveDecisions(all);
       }
 
@@ -208,18 +291,22 @@ function wireForm() {
   const addBtn = $("addDecision");
   if (addBtn) {
     addBtn.addEventListener("click", () => {
+      const statusVal = $("status")?.value || "";
+
       const d = {
         id: uid(),
         createdAt: Date.now(),
         reviewed: false,
 
         type: $("type")?.value || "",
-        status: $("status")?.value || "",
+        status: statusVal,
         impact: $("impact")?.value || "",
 
         question: $("question")?.value || "",
         recommendation: $("recommendation")?.value || "",
-        confidence: $("confidence")?.value ? Number($("confidence").value) : null,
+        confidence: $("confidence")?.value !== "" && $("confidence")?.value != null
+          ? Number($("confidence").value)
+          : null,
         reviewDate: $("reviewDate")?.value || "",
 
         reason: $("reason")?.value || "",
@@ -227,12 +314,26 @@ function wireForm() {
         runway: $("runway")?.value ? Number($("runway").value) : null,
         growth: $("growth")?.value ? Number($("growth").value) : null,
         ltv: $("ltv")?.value ? Number($("ltv").value) : null,
-        guardrails: $("guardrails")?.value || ""
+        guardrails: $("guardrails")?.value || "",
+        guardrailsDefined: Boolean($("guardrailsDefined")?.checked)
       };
 
       if (!d.question.trim()) {
         alert("Add a decision question.");
         return;
+      }
+
+      // Force failure semantics:
+      // - Ignored status is explicitly a “not reviewed” failure state (remains unreviewed)
+      if (isIgnoredStatus(d.status)) {
+        d.ignoredAt = Date.now();
+        d.reviewed = false;
+      }
+
+      // Optional: treat Rejected as closed (no need for review loop)
+      if (isRejectedStatus(d.status)) {
+        d.reviewed = true;
+        d.reviewedAt = Date.now();
       }
 
       const list = loadDecisions();
@@ -248,6 +349,7 @@ function wireForm() {
       if ($("growth")) $("growth").value = "";
       if ($("ltv")) $("ltv").value = "";
       if ($("guardrails")) $("guardrails").value = "";
+      if ($("guardrailsDefined")) $("guardrailsDefined").checked = false;
       if ($("reviewDate")) $("reviewDate").value = todayISO();
 
       updateStats();
@@ -271,7 +373,7 @@ function wireForm() {
   if ($("reviewDate") && !$("reviewDate").value) $("reviewDate").value = todayISO();
 
   // filter/search re-render
-  ["filterStatus","filterRisk","search"].forEach(id => {
+  ["filterStatus", "filterRisk", "search"].forEach(id => {
     const el = $(id);
     if (!el) return;
     el.addEventListener("input", () => renderDecisions());
@@ -289,7 +391,6 @@ async function incrementTesterCount() {
   const already = localStorage.getItem(seenKey) === "1";
 
   // Public counter API (no backend needed). Namespace it to your product.
-  // If the API fails, we just show "—".
   const counterName = "fourlevelsai-v432-testers";
 
   try {
@@ -320,21 +421,45 @@ function renderOverview() {
 
   const list = loadDecisions();
   const total = list.length;
-  const open = list.filter(d => !d.reviewed).length;
-  const due = list.filter(d => !d.reviewed && computeUpcoming(d)).length;
+
+  // Open on overview should match dashboard semantics
+  const open = list.filter(d =>
+    !d.reviewed &&
+    !isIgnoredStatus(d.status) &&
+    !isRejectedStatus(d.status)
+  ).length;
+
+  const due = list.filter(d =>
+    !d.reviewed &&
+    !isIgnoredStatus(d.status) &&
+    !isRejectedStatus(d.status) &&
+    computeUpcoming(d)
+  ).length;
 
   if (totalEl) totalEl.textContent = String(total);
   if (openEl) openEl.textContent = String(open);
   if (dueEl) dueEl.textContent = String(due);
 
   if (recentMount) {
-    const recent = [...list].sort((a,b)=> (b.createdAt||0)-(a.createdAt||0)).slice(0,5);
+    const recent = [...list].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 5);
+
     if (!recent.length) {
       recentMount.innerHTML = `<p class="empty">No decisions yet. Go to Dashboard and add one.</p>`;
     } else {
       recentMount.innerHTML = recent.map(d => {
-        const risk = computeHighRisk(d);
+        const overdue = isOverdue(d);
+        const ignored = isIgnoredStatus(d.status);
+        const riskSignal = computeRiskSignal(d);
         const conf = Number(d.confidence ?? 0);
+
+        const extraBadge = ignored
+          ? `<span class="badge risk">IGNORED</span>`
+          : overdue
+            ? `<span class="badge risk">OVERDUE</span>`
+            : riskSignal
+              ? `<span class="badge risk">RISK</span>`
+              : `<span class="badge ok">OK</span>`;
+
         return `
           <div class="decision">
             <div class="decision-top">
@@ -345,7 +470,7 @@ function renderOverview() {
               <div class="badges">
                 <span class="badge">${escapeHTML(d.type || "—")}</span>
                 <span class="badge">${escapeHTML(d.status || "—")}</span>
-                ${risk ? `<span class="badge risk">RISK</span>` : `<span class="badge ok">OK</span>`}
+                ${extraBadge}
               </div>
             </div>
             <div class="decision-meta">
@@ -362,11 +487,11 @@ function renderOverview() {
 // ---------- Escape ----------
 function escapeHTML(s) {
   return String(s ?? "")
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 // ---------- Boot ----------
