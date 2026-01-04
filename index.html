@@ -1,4 +1,4 @@
-<!doctype html>
+ <!doctype html>
 <html lang="en" data-theme="light">
 <head>
   <meta charset="utf-8" />
@@ -19,6 +19,7 @@
 
       <div class="top-actions">
         <a class="btn ghost" href="overview.html">Overview</a>
+        <a class="btn ghost" href="review.html">Review</a>
         <button class="btn ghost icon-btn" id="themeToggle" aria-label="Toggle theme">◐</button>
         <span class="pill">V.4.3.2</span>
       </div>
@@ -163,7 +164,13 @@
     <!-- DECISIONS LIST -->
     <section class="card">
       <div class="card-head">
-        <h2>Decisions</h2>
+        <div>
+          <h2>Decisions</h2>
+          <p class="sub" style="margin:6px 0 0;">
+            Reviews require recording the outcome and one learning. No outcome = no review.
+          </p>
+        </div>
+
         <div class="filters">
           <select id="filterStatus">
             <option>All statuses</option>
@@ -199,3 +206,4 @@
   <script src="app.js"></script>
 </body>
 </html>
+
