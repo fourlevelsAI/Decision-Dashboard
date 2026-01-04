@@ -3,7 +3,7 @@
    - Overdue mechanic: review date passed + not reviewed => "OVERDUE" badge + counted as risk signal
    - "Ignored / Not Reviewed" treated as failure state => counted as risk signal + explicit badge
    - Binary guardrails (guardrailsDefined) used for High Impact decisions
-   - Review flow is now REAL: Review button routes to review.html?id=... and closes loop only on submission
+   - Review flow is REAL: Review button routes to review.html?id=... and closes loop only on submission
 */
 
 const STORAGE_KEY = "v432_decisions";
@@ -58,7 +58,7 @@ function isOverdue(d) {
 }
 
 function computeHighRisk(d) {
-  const conf = Number(d.confidence ?? 0);
+  const conf = Number(d.confidence ?? NaN);
   const impactHigh = isHighImpact(d);
 
   // Binary guardrails: for High impact, missing guardrailsDefined is a risk
@@ -68,7 +68,7 @@ function computeHighRisk(d) {
   // Confidence risk only if a valid number exists
   const lowConfidence = Number.isFinite(conf) && conf >= 0 && conf < 60;
 
-  // High impact is inherently higher risk; keep it as a signal
+  // High impact is inherently higher risk
   return impactHigh || lowConfidence || missingGuardrails;
 }
 
@@ -134,6 +134,16 @@ function initTheme() {
 }
 
 // ---------- Stats (dashboard) ----------
+function setTextIfExists(idList, value) {
+  for (const id of idList) {
+    const el = $(id);
+    if (el) {
+      el.textContent = value;
+      return;
+    }
+  }
+}
+
 function updateStats() {
   const list = loadDecisions();
 
@@ -159,10 +169,66 @@ function updateStats() {
 
   const avg = avgConfidence(list);
 
-  if ($("stat-open")) $("stat-open").textContent = String(open);
-  if ($("stat-upcoming")) $("stat-upcoming").textContent = String(upcoming);
-  if ($("stat-risk")) $("stat-risk").textContent = String(risk);
-  if ($("stat-avg")) $("stat-avg").textContent = avg === null ? "—" : `${avg}%`;
+  // Supports both your current IDs and future renames without breaking
+  setTextIfExists(["stat-open", "openCount"], String(open));
+  setTextIfExists(["stat-upcoming", "dueSoonCount"], String(upcoming));
+  setTextIfExists(["stat-risk", "highRiskCount"], String(risk));
+  setTextIfExists(["stat-avg", "avgConfidence"], avg === null ? "—" : `${avg}%`);
+}
+
+// ---------- Filters: populate from data (prevents dead dropdowns) ----------
+function populateFilters(list) {
+  const statusEl = $("filterStatus");
+  const riskEl = $("filterRisk");
+
+  if (statusEl) {
+    const current = statusEl.value || "All statuses";
+
+    // Collect statuses from data + enforce known order
+    const known = ["Proposed", "Approved", "Rejected", "Ignored / Not Reviewed"];
+    const fromData = [...new Set(list.map(d => String(d.status || "").trim()).filter(Boolean))];
+
+    const merged = [
+      ...known,
+      ...fromData.filter(s => !known.includes(s))
+    ].filter(Boolean);
+
+    // If the select is empty or only has one option, repopulate safely
+    if (statusEl.options.length <= 1) {
+      statusEl.innerHTML = "";
+      const optAll = document.createElement("option");
+      optAll.textContent = "All statuses";
+      statusEl.appendChild(optAll);
+
+      merged.forEach(s => {
+        const opt = document.createElement("option");
+        opt.textContent = s;
+        statusEl.appendChild(opt);
+      });
+    }
+
+    // restore selection if still valid
+    statusEl.value = [...statusEl.options].some(o => o.value === current || o.textContent === current)
+      ? current
+      : "All statuses";
+  }
+
+  if (riskEl) {
+    const current = riskEl.value || "All risk";
+    if (riskEl.options.length <= 1) {
+      riskEl.innerHTML = "";
+      const all = document.createElement("option");
+      all.textContent = "All risk";
+      riskEl.appendChild(all);
+
+      const hi = document.createElement("option");
+      hi.textContent = "High";
+      riskEl.appendChild(hi);
+    }
+    riskEl.value = [...riskEl.options].some(o => o.value === current || o.textContent === current)
+      ? current
+      : "All risk";
+  }
 }
 
 // ---------- Render decisions list (dashboard) ----------
@@ -171,6 +237,7 @@ function renderDecisions() {
   if (!mount) return;
 
   const list = loadDecisions();
+  populateFilters(list);
 
   const filterStatus = $("filterStatus")?.value || "All statuses";
   const filterRisk = $("filterRisk")?.value || "All risk";
@@ -203,12 +270,11 @@ function renderDecisions() {
   }
 
   mount.innerHTML = filtered.map(d => {
-    const conf = Number(d.confidence ?? 0);
+    const conf = Number(d.confidence ?? NaN);
     const overdue = isOverdue(d);
     const ignored = isIgnoredStatus(d.status);
     const riskSignal = computeRiskSignal(d);
 
-    // badges
     const badges = [];
     badges.push(`<span class="badge">${escapeHTML(d.type || "—")}</span>`);
     badges.push(`<span class="badge">${escapeHTML(d.status || "—")}</span>`);
@@ -221,7 +287,6 @@ function renderDecisions() {
     if (d.reviewed) badges.push(`<span class="badge ok">REVIEWED</span>`);
     if (d.reviewed && d.outcome) badges.push(`<span class="badge">${escapeHTML(d.outcome)}</span>`);
 
-    // advanced meta
     const runway = d.runway ? `Runway: ${d.runway}m` : "";
     const growth = (d.growth || d.growth === 0) ? `MoM: ${d.growth}%` : "";
     const ltv = (d.ltv || d.ltv === 0) ? `LTV/CAC: ${d.ltv}` : "";
@@ -231,9 +296,6 @@ function renderDecisions() {
       : (d.guardrailsDefined ? "Guardrails: Defined" : "");
     const meta = [runway, growth, ltv, guardrailsBinary, guards].filter(Boolean).join(" · ");
 
-    // Review CTA logic:
-    // - If already reviewed: button disabled
-    // - Else: route to review.html?id=...
     const reviewBtnLabel = d.reviewed ? "Reviewed" : "Review decision";
 
     return `
@@ -283,7 +345,6 @@ function renderDecisions() {
       if (!id) return;
 
       if (action === "review") {
-        // Route to the dedicated Review page (1-of-1 wedge)
         window.location.href = `review.html?id=${encodeURIComponent(id)}`;
         return;
       }
@@ -347,7 +408,6 @@ function wireForm() {
       }
 
       // Failure semantics:
-      // - Ignored status is explicitly a “not reviewed” failure state (remains unreviewed)
       if (isIgnoredStatus(d.status)) {
         d.ignoredAt = Date.now();
         d.reviewed = false;
@@ -375,6 +435,7 @@ function wireForm() {
       if ($("ltv")) $("ltv").value = "";
       if ($("guardrails")) $("guardrails").value = "";
       if ($("guardrailsDefined")) $("guardrailsDefined").checked = false;
+
       if ($("reviewDate")) $("reviewDate").value = todayISO();
 
       updateStats();
@@ -470,7 +531,7 @@ function renderOverview() {
         const overdue = isOverdue(d);
         const ignored = isIgnoredStatus(d.status);
         const riskSignal = computeRiskSignal(d);
-        const conf = Number(d.confidence ?? 0);
+        const conf = Number(d.confidence ?? NaN);
 
         const extraBadge = ignored
           ? `<span class="badge risk">IGNORED</span>`
@@ -516,7 +577,6 @@ function renderReviewPage() {
   const qEl = $("review-question");
   const metaEl = $("review-meta");
 
-  // Only run on review.html (elements must exist)
   if (!submitBtn || !qEl || !metaEl) return;
 
   const id = getQueryParam("id");
@@ -536,10 +596,9 @@ function renderReviewPage() {
 
   const d = list[idx];
 
-  // Populate context
   qEl.innerHTML = `<strong>${escapeHTML(d.question || "(No question)")}</strong>`;
 
-  const conf = Number(d.confidence ?? 0);
+  const conf = Number(d.confidence ?? NaN);
   const overdue = isOverdue(d);
   const ignored = isIgnoredStatus(d.status);
 
@@ -557,7 +616,6 @@ function renderReviewPage() {
     <span style="width:100%; display:block; margin-top:8px;">${badges.join(" ")}</span>
   `;
 
-  // Pre-fill if already reviewed (read-only behavior)
   if (d.reviewed && d.outcome) {
     if ($("outcome")) $("outcome").value = d.outcome;
     if ($("outcomeNotes")) $("outcomeNotes").value = d.outcomeNotes || "";
@@ -577,7 +635,6 @@ function renderReviewPage() {
       return;
     }
 
-    // Close loop for real
     list[idx].outcome = outcome;
     list[idx].outcomeNotes = outcomeNotes;
     list[idx].learning = learning;
@@ -587,7 +644,6 @@ function renderReviewPage() {
 
     saveDecisions(list);
 
-    // Return to dashboard (source of truth)
     window.location.href = "index.html";
   });
 }
@@ -596,7 +652,6 @@ function renderReviewPage() {
 (function init() {
   initTheme();
 
-  // Page-safe calls (they only act if required elements exist)
   updateStats();
   wireForm();
   renderDecisions();
