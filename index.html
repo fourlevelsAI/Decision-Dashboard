@@ -10,16 +10,16 @@
 <body>
   <div class="container">
 
-    <!-- TOP HEADER -->
     <header class="top">
       <div class="top-left">
         <h1>Decision Dashboard</h1>
-        <p class="sub">Turn founder pressure into written decisions you can review, audit, and learn from.</p>
+        <p class="sub">
+          Turn founder pressure into written decisions you can review, audit, and learn from.
+        </p>
       </div>
 
       <div class="top-actions">
         <a class="btn ghost" href="overview.html">Overview</a>
-        <a class="btn ghost" href="review.html">Review</a>
         <button class="btn ghost icon-btn" id="themeToggle" aria-label="Toggle theme">◐</button>
         <span class="pill">V.4.3.2</span>
       </div>
@@ -29,25 +29,25 @@
     <section class="stats">
       <div class="stat-card">
         <div class="stat-label">OPEN DECISIONS</div>
-        <div class="stat-value" id="stat-open">0</div>
+        <div class="stat-value" id="openCount">0</div>
         <div class="stat-sub">Active decisions</div>
       </div>
 
       <div class="stat-card">
         <div class="stat-label">DUE SOON</div>
-        <div class="stat-value" id="stat-upcoming">0</div>
+        <div class="stat-value" id="dueSoonCount">0</div>
         <div class="stat-sub">Next 14 days</div>
       </div>
 
       <div class="stat-card">
         <div class="stat-label">HIGH RISK</div>
-        <div class="stat-value" id="stat-risk">0</div>
+        <div class="stat-value" id="highRiskCount">0</div>
         <div class="stat-sub">Needs guardrails</div>
       </div>
 
       <div class="stat-card">
         <div class="stat-label">CONFIDENCE AT COMMIT</div>
-        <div class="stat-value" id="stat-avg">—</div>
+        <div class="stat-value" id="avgConfidence">—</div>
         <div class="stat-sub">Average across logged decisions</div>
       </div>
     </section>
@@ -55,145 +55,142 @@
     <!-- ADD DECISION -->
     <section class="card">
       <div class="card-head">
-        <div>
-          <h2>Add a decision</h2>
-          <p class="sub" style="margin:6px 0 0;">
-            If it’s not written, it’s not a decision. Write it now so you can review it when reality responds.
+        <h2>Add a decision</h2>
+        <p class="sub">
+          If it’s not written, it’s not a decision. Write it now so you can review it when reality responds.
+        </p>
+      </div>
+
+      <form id="decisionForm">
+
+        <div class="grid-3">
+          <div>
+            <label>Decision domain</label>
+            <select id="domain">
+              <option>Hiring</option>
+              <option>Marketing</option>
+              <option>Product</option>
+              <option>Finance</option>
+              <option>Strategy</option>
+            </select>
+          </div>
+
+          <div>
+            <label>Status</label>
+            <select id="status">
+              <option>Proposed</option>
+              <option>Committed</option>
+              <option>Rejected</option>
+              <option>Ignored</option>
+            </select>
+          </div>
+
+          <div>
+            <label>Impact</label>
+            <select id="impact">
+              <option>Low</option>
+              <option>Medium</option>
+              <option>High</option>
+            </select>
+          </div>
+        </div>
+
+        <label>Decision question</label>
+        <input
+          id="question"
+          placeholder="e.g. Hire a senior marketer this quarter?"
+        />
+
+        <label>Recommendation</label>
+        <input
+          id="recommendation"
+          placeholder="e.g. Yes — with guardrails and a review checkpoint"
+        />
+
+        <div class="grid-2">
+          <div>
+            <label>Confidence at commit (0–100)</label>
+            <input type="number" id="confidence" min="0" max="100" value="68" />
+          </div>
+
+          <div>
+            <label>Review date</label>
+            <input type="date" id="reviewDate" />
+          </div>
+        </div>
+
+        <label>Reason / Evidence</label>
+        <textarea
+          id="reason"
+          placeholder="Write assumptions, evidence, and what would change your mind."
+        ></textarea>
+
+        <!-- ADVANCED METRICS -->
+        <details class="advanced">
+          <summary>Advanced metrics (optional)</summary>
+
+          <div class="grid-3">
+            <div>
+              <label>Runway (months)</label>
+              <input type="number" id="runway" value="6" />
+            </div>
+
+            <div>
+              <label>Growth % (MoM)</label>
+              <input type="number" id="growth" value="12" />
+            </div>
+
+            <div>
+              <label>LTV / CAC</label>
+              <input type="number" step="0.1" id="ltv" value="3.2" />
+            </div>
+          </div>
+
+          <label>Guardrails</label>
+          <input
+            id="guardrails"
+            placeholder="e.g. cap spend, milestone gate, hire only after X"
+          />
+
+          <div class="hint">
+            Guardrails are treated as a binary signal. Empty = missing.
+          </div>
+
+          <p class="footnote">
+            Only add metrics if they would change the decision or trigger a review.
           </p>
-        </div>
-        <button class="btn ghost" id="clearAll">Clear all</button>
-      </div>
+        </details>
 
-      <div class="form-grid">
-        <div>
-          <label>Decision domain</label>
-          <select id="type">
-            <option>Hiring</option>
-            <option>Marketing</option>
-            <option>Product</option>
-            <option>Finance</option>
-            <option>Operations</option>
-          </select>
+        <div class="actions">
+          <button type="submit" class="btn primary">Add decision</button>
         </div>
 
-        <div>
-          <label>Status</label>
-          <select id="status">
-            <option>Proposed</option>
-            <option>Approved</option>
-            <option>Rejected</option>
-            <option>Ignored / Not Reviewed</option>
-          </select>
-        </div>
-
-        <div>
-          <label>Impact</label>
-          <select id="impact">
-            <option>Low</option>
-            <option selected>Medium</option>
-            <option>High</option>
-          </select>
-        </div>
-
-        <div class="full">
-          <label>Decision question</label>
-          <input id="question" placeholder="e.g., Hire a senior marketer this quarter?" />
-        </div>
-
-        <div class="full">
-          <label>Recommendation</label>
-          <input id="recommendation" placeholder="e.g., Yes — with guardrails and a review checkpoint" />
-        </div>
-
-        <div>
-          <label>Confidence at commit (0–100)</label>
-          <input id="confidence" type="number" min="0" max="100" placeholder="68" />
-        </div>
-
-        <div>
-          <label>Review date</label>
-          <input id="reviewDate" type="date" />
-        </div>
-
-        <div class="full">
-          <label>Reason / Evidence</label>
-          <textarea id="reason" rows="3" placeholder="Write assumptions, evidence, and what would change your mind."></textarea>
-        </div>
-      </div>
-
-      <details class="advanced">
-        <summary>Advanced metrics (optional)</summary>
-        <div class="form-grid">
-          <div>
-            <label>Runway (months)</label>
-            <input id="runway" type="number" placeholder="6" />
-          </div>
-
-          <div>
-            <label>Growth % (MoM)</label>
-            <input id="growth" type="number" placeholder="12" />
-          </div>
-
-          <div>
-            <label>LTV / CAC</label>
-            <input id="ltv" type="number" step="0.1" placeholder="3.2" />
-          </div>
-
-          <div>
-            <label>Guardrails</label>
-            <input id="guardrails" placeholder="e.g., cap spend, milestone gate, hire only after X" />
-          </div>
-
-          <div class="full">
-            <label style="display:flex; align-items:center; gap:10px;">
-              <input id="guardrailsDefined" type="checkbox" />
-              Guardrails defined (binary)
-            </label>
-            <p class="sub" style="margin:6px 0 0;">
-              Only add metrics if they would change the decision or trigger a review.
-            </p>
-          </div>
-        </div>
-      </details>
-
-      <div class="actions">
-        <button class="btn primary" id="addDecision">Add decision</button>
-      </div>
+      </form>
     </section>
 
     <!-- DECISIONS LIST -->
     <section class="card">
       <div class="card-head">
-        <div>
-          <h2>Decisions</h2>
-          <p class="sub" style="margin:6px 0 0;">
-            Reviews require recording the outcome and one learning. No outcome = no review.
-          </p>
-        </div>
-
-        <div class="filters">
-          <select id="filterStatus">
-            <option>All statuses</option>
-            <option>Proposed</option>
-            <option>Approved</option>
-            <option>Rejected</option>
-            <option>Ignored / Not Reviewed</option>
-          </select>
-
-          <select id="filterRisk">
-            <option>All risk</option>
-            <option>High</option>
-          </select>
-
-          <input id="search" placeholder="Search decisions..." />
-        </div>
+        <h2>Decisions</h2>
+        <p class="sub">
+          Reviews require recording the outcome and one learning. No outcome = no review.
+        </p>
       </div>
 
-      <div id="decisions">
-        <div class="empty">
-          <p style="margin:0 0 6px;"><strong>No decisions logged.</strong></p>
-          <p style="margin:0;">Untracked decisions = blind execution. Log the next decision above to create a review loop.</p>
-        </div>
+      <div class="filters">
+        <select id="filterStatus">
+          <option value="">All statuses</option>
+        </select>
+
+        <select id="filterRisk">
+          <option value="">All risk</option>
+        </select>
+
+        <input id="search" placeholder="Search decisions…" />
+      </div>
+
+      <div id="decisionList">
+        <p class="empty">No decisions yet.</p>
       </div>
     </section>
 
