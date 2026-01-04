@@ -1,9 +1,9 @@
- /* V.4.3.2 – app.js (shared by index.html + overview.html)
-   Updates:
-   - Overdue mechanic (review date passed + not reviewed) => "OVERDUE" badge + counted as risk signal
+ /* V.4.3.2 – app.js (shared by index.html + overview.html + review.html)
+   Core mechanics:
+   - Overdue mechanic: review date passed + not reviewed => "OVERDUE" badge + counted as risk signal
    - "Ignored / Not Reviewed" treated as failure state => counted as risk signal + explicit badge
    - Binary guardrails (guardrailsDefined) used for High Impact decisions
-   - Stats adjusted: Open excludes Ignored + Rejected; Due Soon excludes Ignored + Rejected
+   - Review flow is now REAL: Review button routes to review.html?id=... and closes loop only on submission
 */
 
 const STORAGE_KEY = "v432_decisions";
@@ -80,7 +80,7 @@ function computeUpcoming(d) {
 }
 
 function computeRiskSignal(d) {
-  // “Risk” is now a SYSTEM signal:
+  // “Risk” is a SYSTEM signal:
   // - inherent risk (high impact / low confidence / missing guardrails)
   // - overdue reviews (loop not closed)
   // - ignored decisions (explicit failure state)
@@ -99,6 +99,21 @@ function avgConfidence(list) {
 
 function uid() {
   return Math.random().toString(16).slice(2) + "-" + Date.now().toString(16);
+}
+
+function getQueryParam(name) {
+  const sp = new URLSearchParams(window.location.search);
+  return sp.get(name);
+}
+
+// ---------- Escape ----------
+function escapeHTML(s) {
+  return String(s ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 // ---------- Theme ----------
@@ -175,7 +190,7 @@ function renderDecisions() {
     filtered = filtered.filter(d => {
       const blob = [
         d.type, d.status, d.impact, d.question, d.recommendation, d.reason,
-        d.guardrails, d.reviewDate,
+        d.guardrails, d.reviewDate, d.outcome, d.learning,
         d.guardrailsDefined ? "guardrails-defined" : "guardrails-missing"
       ].join(" ").toLowerCase();
       return blob.includes(q);
@@ -183,8 +198,6 @@ function renderDecisions() {
   }
 
   if (!filtered.length) {
-    // Keep your index.html empty-state for “no decisions logged”.
-    // This message is for “filters produce no results”.
     mount.innerHTML = `<p class="empty">No decisions match your filters.</p>`;
     return;
   }
@@ -205,6 +218,9 @@ function renderDecisions() {
     if (overdue) badges.push(`<span class="badge risk">OVERDUE</span>`);
     if (!ignored && !overdue) badges.push(riskSignal ? `<span class="badge risk">RISK</span>` : `<span class="badge ok">OK</span>`);
 
+    if (d.reviewed) badges.push(`<span class="badge ok">REVIEWED</span>`);
+    if (d.reviewed && d.outcome) badges.push(`<span class="badge">${escapeHTML(d.outcome)}</span>`);
+
     // advanced meta
     const runway = d.runway ? `Runway: ${d.runway}m` : "";
     const growth = (d.growth || d.growth === 0) ? `MoM: ${d.growth}%` : "";
@@ -215,7 +231,10 @@ function renderDecisions() {
       : (d.guardrailsDefined ? "Guardrails: Defined" : "");
     const meta = [runway, growth, ltv, guardrailsBinary, guards].filter(Boolean).join(" · ");
 
-    const reviewBtnLabel = d.reviewed ? "Reviewed" : "Mark reviewed";
+    // Review CTA logic:
+    // - If already reviewed: button disabled
+    // - Else: route to review.html?id=...
+    const reviewBtnLabel = d.reviewed ? "Reviewed" : "Review decision";
 
     return `
       <div class="decision">
@@ -244,6 +263,7 @@ function renderDecisions() {
           <span><b>Reason:</b> ${escapeHTML(d.reason || "—")}</span>
           ${d.reviewDate ? `<span><b>Review:</b> ${escapeHTML(d.reviewDate)}</span>` : ""}
           ${meta ? `<span>${escapeHTML(meta)}</span>` : ""}
+          ${d.reviewed && d.learning ? `<span><b>Learning:</b> ${escapeHTML(d.learning)}</span>` : ""}
         </div>
 
         <div class="decision-actions">
@@ -262,6 +282,12 @@ function renderDecisions() {
       const id = btn.getAttribute("data-id");
       if (!id) return;
 
+      if (action === "review") {
+        // Route to the dedicated Review page (1-of-1 wedge)
+        window.location.href = `review.html?id=${encodeURIComponent(id)}`;
+        return;
+      }
+
       const all = loadDecisions();
       const idx = all.findIndex(x => x.id === id);
       if (idx === -1) return;
@@ -271,17 +297,9 @@ function renderDecisions() {
         saveDecisions(all);
       }
 
-      if (action === "review") {
-        // Close loop
-        all[idx].reviewed = true;
-        all[idx].reviewedAt = Date.now();
-        // If it was "Ignored", keep status as-is (this preserves the failure signal)
-        saveDecisions(all);
-      }
-
       updateStats();
       renderDecisions();
-      renderOverview(); // in case we're on overview page
+      renderOverview();
     });
   });
 }
@@ -315,7 +333,12 @@ function wireForm() {
         growth: $("growth")?.value ? Number($("growth").value) : null,
         ltv: $("ltv")?.value ? Number($("ltv").value) : null,
         guardrails: $("guardrails")?.value || "",
-        guardrailsDefined: Boolean($("guardrailsDefined")?.checked)
+        guardrailsDefined: Boolean($("guardrailsDefined")?.checked),
+
+        // Review fields (filled only on review.html)
+        outcome: "",
+        outcomeNotes: "",
+        learning: ""
       };
 
       if (!d.question.trim()) {
@@ -323,7 +346,7 @@ function wireForm() {
         return;
       }
 
-      // Force failure semantics:
+      // Failure semantics:
       // - Ignored status is explicitly a “not reviewed” failure state (remains unreviewed)
       if (isIgnoredStatus(d.status)) {
         d.ignoredAt = Date.now();
@@ -334,6 +357,8 @@ function wireForm() {
       if (isRejectedStatus(d.status)) {
         d.reviewed = true;
         d.reviewedAt = Date.now();
+        d.outcome = "As expected";
+        d.learning = "Rejected decision (closed).";
       }
 
       const list = loadDecisions();
@@ -386,11 +411,8 @@ async function incrementTesterCount() {
   const el = $("testerCount");
   if (!el) return;
 
-  // Count “unique browsers” roughly: only increment once per browser via local flag.
   const seenKey = "v432_seen";
   const already = localStorage.getItem(seenKey) === "1";
-
-  // Public counter API (no backend needed). Namespace it to your product.
   const counterName = "fourlevelsai-v432-testers";
 
   try {
@@ -411,7 +433,6 @@ async function incrementTesterCount() {
 }
 
 function renderOverview() {
-  // Only runs if elements exist (overview page)
   const totalEl = $("ov-total");
   const openEl = $("ov-open");
   const dueEl = $("ov-due");
@@ -422,7 +443,6 @@ function renderOverview() {
   const list = loadDecisions();
   const total = list.length;
 
-  // Open on overview should match dashboard semantics
   const open = list.filter(d =>
     !d.reviewed &&
     !isIgnoredStatus(d.status) &&
@@ -460,6 +480,10 @@ function renderOverview() {
               ? `<span class="badge risk">RISK</span>`
               : `<span class="badge ok">OK</span>`;
 
+        const reviewLink = !d.reviewed
+          ? `<a class="btn ghost" style="margin-left:auto" href="review.html?id=${encodeURIComponent(d.id)}">Review</a>`
+          : "";
+
         return `
           <div class="decision">
             <div class="decision-top">
@@ -476,6 +500,8 @@ function renderOverview() {
             <div class="decision-meta">
               <span><b>Confidence:</b> ${Number.isFinite(conf) && conf >= 0 ? `${conf}%` : "—"}</span>
               ${d.reviewDate ? `<span><b>Review:</b> ${escapeHTML(d.reviewDate)}</span>` : ""}
+              ${d.outcome ? `<span><b>Outcome:</b> ${escapeHTML(d.outcome)}</span>` : ""}
+              ${reviewLink}
             </div>
           </div>
         `;
@@ -484,23 +510,98 @@ function renderOverview() {
   }
 }
 
-// ---------- Escape ----------
-function escapeHTML(s) {
-  return String(s ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+// ---------- Review page ----------
+function renderReviewPage() {
+  const submitBtn = $("submitReview");
+  const qEl = $("review-question");
+  const metaEl = $("review-meta");
+
+  // Only run on review.html (elements must exist)
+  if (!submitBtn || !qEl || !metaEl) return;
+
+  const id = getQueryParam("id");
+  if (!id) {
+    qEl.innerHTML = `<span class="empty">Missing decision id. Go back to Dashboard and open a decision from there.</span>`;
+    submitBtn.disabled = true;
+    return;
+  }
+
+  const list = loadDecisions();
+  const idx = list.findIndex(d => d.id === id);
+  if (idx === -1) {
+    qEl.innerHTML = `<span class="empty">Decision not found. It may have been deleted.</span>`;
+    submitBtn.disabled = true;
+    return;
+  }
+
+  const d = list[idx];
+
+  // Populate context
+  qEl.innerHTML = `<strong>${escapeHTML(d.question || "(No question)")}</strong>`;
+
+  const conf = Number(d.confidence ?? 0);
+  const overdue = isOverdue(d);
+  const ignored = isIgnoredStatus(d.status);
+
+  const badges = [];
+  badges.push(`<span class="badge">${escapeHTML(d.type || "—")}</span>`);
+  badges.push(`<span class="badge">${escapeHTML(d.status || "—")}</span>`);
+  badges.push(`<span class="badge">Impact: ${escapeHTML(d.impact || "—")}</span>`);
+  if (ignored) badges.push(`<span class="badge risk">IGNORED</span>`);
+  if (overdue) badges.push(`<span class="badge risk">OVERDUE</span>`);
+
+  metaEl.innerHTML = `
+    <span><b>Recommendation:</b> ${escapeHTML(d.recommendation || "—")}</span>
+    <span><b>Confidence at commit:</b> ${Number.isFinite(conf) && conf >= 0 ? `${conf}%` : "—"}</span>
+    ${d.reviewDate ? `<span><b>Review date:</b> ${escapeHTML(d.reviewDate)}</span>` : ""}
+    <span style="width:100%; display:block; margin-top:8px;">${badges.join(" ")}</span>
+  `;
+
+  // Pre-fill if already reviewed (read-only behavior)
+  if (d.reviewed && d.outcome) {
+    if ($("outcome")) $("outcome").value = d.outcome;
+    if ($("outcomeNotes")) $("outcomeNotes").value = d.outcomeNotes || "";
+    if ($("learning")) $("learning").value = d.learning || "";
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Review closed";
+    return;
+  }
+
+  submitBtn.addEventListener("click", () => {
+    const outcome = ($("outcome")?.value || "").trim();
+    const outcomeNotes = ($("outcomeNotes")?.value || "").trim();
+    const learning = ($("learning")?.value || "").trim();
+
+    if (!outcome) {
+      alert("Select an outcome. No outcome = no review.");
+      return;
+    }
+
+    // Close loop for real
+    list[idx].outcome = outcome;
+    list[idx].outcomeNotes = outcomeNotes;
+    list[idx].learning = learning;
+
+    list[idx].reviewed = true;
+    list[idx].reviewedAt = Date.now();
+
+    saveDecisions(list);
+
+    // Return to dashboard (source of truth)
+    window.location.href = "index.html";
+  });
 }
 
 // ---------- Boot ----------
 (function init() {
   initTheme();
+
+  // Page-safe calls (they only act if required elements exist)
   updateStats();
   wireForm();
   renderDecisions();
   renderOverview();
-  incrementTesterCount(); // only shows on overview page
+  renderReviewPage();
+  incrementTesterCount();
 })();
 
