@@ -1,101 +1,104 @@
-<!doctype html>
+ <!doctype html>
 <html lang="en" data-theme="light">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>V.4.3.2 — System Overview</title>
-    <link rel="stylesheet" href="style.css" />
-  </head>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Overview – V.4.3.2</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
 
-  <body>
-    <div class="container">
-      <!-- TOP -->
-      <header class="top">
-        <div>
-          <h1>V.4.3.2</h1>
-          <p class="sub">
-            A decision intelligence system for founders and professionals.
-          </p>
-        </div>
+<body>
+  <div class="container">
 
-        <div class="top-actions">
-          <a class="btn ghost" href="index.html">Decision Dashboard</a>
-          <div class="pill">Beta</div>
-        </div>
-      </header>
+    <header class="top">
+      <div class="top-left">
+        <h1>Overview</h1>
+        <p class="sub">System-wide visibility: usage + decision health.</p>
+      </div>
 
-      <!-- HERO -->
-      <section class="card" style="padding:22px">
-        <h2>Why this exists</h2>
-        <p class="reason">
-          Most founders don’t fail because of bad ideas.
-          They fail because decisions pile up without structure, review,
-          or measurable confidence.
+      <div class="top-actions">
+        <a class="btn ghost" href="index.html">Dashboard</a>
+        <button class="btn ghost icon-btn" id="themeToggle" aria-label="Toggle theme">◐</button>
+        <span class="pill">V.4.3.2</span>
+      </div>
+    </header>
+
+    <section class="stats">
+      <div class="stat-card">
+        <div class="stat-label">TESTERS</div>
+        <div class="stat-value" id="testerCount">—</div>
+        <div class="stat-sub">Unique browsers (approx)</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">TOTAL DECISIONS</div>
+        <div class="stat-value" id="ov-total">0</div>
+        <div class="stat-sub">All entries</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">OPEN</div>
+        <div class="stat-value" id="ov-open">0</div>
+        <div class="stat-sub">Not reviewed yet</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">DUE SOON</div>
+        <div class="stat-value" id="ov-due">0</div>
+        <div class="stat-sub">Next 14 days</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>What this is</h2>
+      </div>
+
+      <div class="prose">
+        <p>
+          V.4.3.2 turns raw founder metrics into reviewable decisions.
+          The Dashboard captures decisions; Overview shows adoption + health signals.
         </p>
 
-        <p class="reason">
-          V.4.3.2 turns decisions into tracked assets — with confidence,
-          risk, review cadence, and accountability.
-        </p>
-      </section>
+        <div class="callouts">
+          <div class="mini">
+            <div class="mini-title">High Risk Logic</div>
+            <div class="mini-body">
+              Impact = High <span class="muted">OR</span> Confidence &lt; 60 <span class="muted">OR</span> Guardrails missing on High impact
+            </div>
+          </div>
 
-      <!-- STATS -->
-      <section class="kpi-grid" style="margin-top:14px">
-        <div class="card kpi">
-          <div class="kpi-title">PEOPLE TESTING</div>
-          <div class="kpi-value" id="testerCount">—</div>
-          <div class="kpi-sub">Early access users</div>
+          <div class="mini">
+            <div class="mini-title">Upcoming Reviews</div>
+            <div class="mini-body">Review date within the next 14 days.</div>
+          </div>
+
+          <div class="mini">
+            <div class="mini-title">Testers Count</div>
+            <div class="mini-body">
+              Counted via a lightweight public counter API + local “seen” flag per browser.
+            </div>
+          </div>
         </div>
+      </div>
+    </section>
 
-        <div class="card kpi">
-          <div class="kpi-title">VERSION</div>
-          <div class="kpi-value">4.3.2</div>
-          <div class="kpi-sub">Foundational build</div>
-        </div>
+    <section class="card">
+      <div class="card-head">
+        <h2>Recent decisions (latest 5)</h2>
+      </div>
+      <div id="ov-recent">
+        <p class="empty">No decisions yet. Go to Dashboard and add one.</p>
+      </div>
+    </section>
 
-        <div class="card kpi">
-          <div class="kpi-title">FOCUS</div>
-          <div class="kpi-value">DECISIONS</div>
-          <div class="kpi-sub">Not tasks. Not notes.</div>
-        </div>
+    <footer class="foot">
+      <p>If you can see this, styles are working.</p>
+    </footer>
 
-        <div class="card kpi">
-          <div class="kpi-title">STATUS</div>
-          <div class="kpi-value">BETA</div>
-          <div class="kpi-sub">Actively evolving</div>
-        </div>
-      </section>
+  </div>
 
-      <!-- HOW IT WORKS -->
-      <section class="card" style="padding:22px; margin-top:14px">
-        <h2>How it works</h2>
-
-        <ul class="reason">
-          <li>Log a decision with confidence and impact</li>
-          <li>Assign a review date</li>
-          <li>Track risk automatically</li>
-          <li>Review decisions instead of forgetting them</li>
-        </ul>
-
-        <a class="btn primary" href="index.html" style="margin-top:12px">
-          Enter Decision Dashboard →
-        </a>
-      </section>
-    </div>
-
-    <script>
-      // Simple tester counter (localStorage-based MVP)
-      const KEY = "v432_testers";
-
-      let count = Number(localStorage.getItem(KEY) || 0);
-
-      if (!localStorage.getItem("v432_seen")) {
-        count += 1;
-        localStorage.setItem(KEY, count);
-        localStorage.setItem("v432_seen", "yes");
-      }
-
-      document.getElementById("testerCount").textContent = count;
-    </script>
-  </body>
+  <script src="app.js"></script>
+</body>
 </html>
+
