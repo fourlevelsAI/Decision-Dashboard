@@ -9,6 +9,13 @@
   --radius: 18px;
   --primary:#0f172a;
   --primaryText:#ffffff;
+
+  /* Added: subtle semantic tints */
+  --ok: rgb(16,185,129);
+  --risk: rgb(239,68,68);
+  --warn: rgb(245,158,11);
+  --glass: rgba(255,255,255,.22);
+  --glass2: rgba(255,255,255,.18);
 }
 
 html[data-theme="dark"]{
@@ -21,6 +28,10 @@ html[data-theme="dark"]{
   --shadow: 0 18px 50px rgba(0,0,0,.35);
   --primary:#e5e7eb;
   --primaryText:#0b1220;
+
+  /* Added: dark-safe glass */
+  --glass: rgba(255,255,255,.06);
+  --glass2: rgba(255,255,255,.04);
 }
 
 *{box-sizing:border-box}
@@ -99,6 +110,7 @@ body{
 }
 .btn.ghost{background:rgba(255,255,255,.22)}
 .icon-btn{width:42px; justify-content:center}
+.btn:disabled{opacity:.55; cursor:not-allowed}
 
 .stats{
   display:grid;
@@ -186,6 +198,7 @@ input:focus, select:focus, textarea:focus{
   border:1px dashed var(--line);
   border-radius: 14px;
   padding:12px;
+  background: var(--glass2);
 }
 .advanced summary{
   cursor:pointer;
@@ -212,18 +225,25 @@ input:focus, select:focus, textarea:focus{
 }
 
 #decisions, #ov-recent{margin-top:12px}
+
+/* Upgraded empty state: reads like a “system warning”, not a placeholder */
 .empty{
   color:var(--muted);
   margin:0;
-  padding:14px 0;
+  padding:14px;
+  border:1px dashed var(--line);
+  border-radius: 16px;
+  background: var(--glass2);
+  line-height:1.6;
 }
 
+/* Decisions list cards */
 .decision{
   border:1px solid var(--line);
   border-radius: var(--radius);
   padding:16px;
   margin-top:12px;
-  background: rgba(255,255,255,.22);
+  background: var(--glass);
 }
 
 .decision-top{
@@ -248,8 +268,11 @@ input:focus, select:focus, textarea:focus{
   color:var(--muted);
   background: rgba(255,255,255,.25);
 }
-.badge.ok{border-color: rgba(16,185,129,.35); color: rgb(16,185,129)}
-.badge.risk{border-color: rgba(239,68,68,.35); color: rgb(239,68,68)}
+
+/* Semantic badges */
+.badge.ok{border-color: rgba(16,185,129,.35); color: var(--ok)}
+.badge.risk{border-color: rgba(239,68,68,.35); color: var(--risk)}
+.badge.warn{border-color: rgba(245,158,11,.35); color: var(--warn)}
 
 .decision-grid{
   display:grid;
@@ -261,6 +284,7 @@ input:focus, select:focus, textarea:focus{
   border:1px solid var(--line);
   border-radius: 14px;
   padding:12px;
+  background: var(--glass2);
 }
 .klabel{
   color:var(--muted);
@@ -280,7 +304,9 @@ input:focus, select:focus, textarea:focus{
   display:flex;
   gap:10px;
   flex-wrap:wrap;
+  line-height:1.45;
 }
+.decision-meta b{color:var(--text); font-weight:900}
 
 .decision-actions{
   display:flex;
@@ -306,6 +332,7 @@ input:focus, select:focus, textarea:focus{
   border:1px solid var(--line);
   border-radius: 16px;
   padding:12px;
+  background: var(--glass2);
 }
 .mini-title{font-weight:900}
 .mini-body{color:var(--muted); margin-top:8px; line-height:1.5}
