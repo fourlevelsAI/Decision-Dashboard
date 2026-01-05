@@ -14,7 +14,7 @@
       <div class="top-left">
         <h1>Decision Dashboard</h1>
         <p class="sub">
-          Turn founder pressure into written decisions you can review, audit, and learn from.
+          Not an HR tool. A system that forces clear thinking before people decisions — and review after reality responds.
         </p>
       </div>
 
@@ -42,7 +42,7 @@
       <div class="stat-card">
         <div class="stat-label">HIGH RISK</div>
         <div class="stat-value" id="highRiskCount">0</div>
-        <div class="stat-sub">Needs guardrails</div>
+        <div class="stat-sub">Missing guardrails / low confidence</div>
       </div>
 
       <div class="stat-card">
@@ -57,7 +57,7 @@
       <div class="card-head">
         <h2>Add a decision</h2>
         <p class="sub">
-          If it’s not written, it’s not a decision. Write it now so you can review it when reality responds.
+          If it’s not written, it’s not a decision. Write it now so you can audit it later.
         </p>
       </div>
 
@@ -68,6 +68,8 @@
             <label>Decision domain</label>
             <select id="domain">
               <option>Hiring</option>
+              <option>Compensation</option>
+              <option>Org Design</option>
               <option>Marketing</option>
               <option>Product</option>
               <option>Finance</option>
@@ -80,6 +82,7 @@
             <select id="status">
               <option>Proposed</option>
               <option>Committed</option>
+              <option>Reviewed</option>
               <option>Rejected</option>
               <option>Ignored</option>
             </select>
@@ -94,6 +97,77 @@
             </select>
           </div>
         </div>
+
+        <!-- Hiring-specific inputs (UI state). App.js will later show/hide based on domain === Hiring -->
+        <details class="advanced" id="hiringInputs">
+          <summary>Hiring decision inputs (recommended for Hiring)</summary>
+
+          <div class="grid-3">
+            <div>
+              <label>Role title</label>
+              <input id="h_roleTitle" placeholder="e.g. Senior Marketing Manager" />
+            </div>
+            <div>
+              <label>Level</label>
+              <select id="h_level">
+                <option value="">Select…</option>
+                <option>Junior</option>
+                <option>Mid</option>
+                <option>Senior</option>
+                <option>Lead</option>
+                <option>Head / Director</option>
+              </select>
+            </div>
+            <div>
+              <label>Team / function</label>
+              <input id="h_team" placeholder="e.g. Growth / Performance" />
+            </div>
+          </div>
+
+          <div class="grid-3">
+            <div>
+              <label>Location / time zone</label>
+              <input id="h_location" placeholder="e.g. Barcelona / CET" />
+            </div>
+            <div>
+              <label>Comp band (range)</label>
+              <input id="h_comp" placeholder="e.g. €55k–€70k base (+ bonus)" />
+            </div>
+            <div>
+              <label>Start deadline</label>
+              <input id="h_deadline" type="date" />
+            </div>
+          </div>
+
+          <label>What problem does this hire solve?</label>
+          <textarea id="h_problem" placeholder="Describe the bottleneck this role removes. Be specific."></textarea>
+
+          <div class="grid-2">
+            <div>
+              <label>90-day success metrics</label>
+              <textarea id="h_90day" placeholder="3–5 measurable outcomes for the first 90 days."></textarea>
+            </div>
+            <div>
+              <label>Scorecard (must-haves)</label>
+              <textarea id="h_scorecard" placeholder="Non-negotiables: skills, traits, experience."></textarea>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div>
+              <label>Interview plan</label>
+              <textarea id="h_interview" placeholder="Stages + what each stage proves."></textarea>
+            </div>
+            <div>
+              <label>Alternatives to hiring</label>
+              <textarea id="h_alternatives" placeholder="Contractor, agency, internal promotion, delay, automation, etc."></textarea>
+            </div>
+          </div>
+
+          <p class="footnote">
+            This block is your “anti-rationalization” layer. If you can’t fill it, you don’t understand the hire.
+          </p>
+        </details>
 
         <label>Decision question</label>
         <input
@@ -152,9 +226,9 @@
             placeholder="e.g. cap spend, milestone gate, hire only after X"
           />
 
-          <div class="hint">
-            Guardrails are treated as a binary signal. Empty = missing.
-          </div>
+          <p class="footnote">
+            Guardrails are treated as a binary signal: empty = missing. (This is why it can trigger HIGH RISK.)
+          </p>
 
           <p class="footnote">
             Only add metrics if they would change the decision or trigger a review.
@@ -173,7 +247,7 @@
       <div class="card-head">
         <h2>Decisions</h2>
         <p class="sub">
-          Reviews require recording the outcome and one learning. No outcome = no review.
+          Reviews require recording the outcome + one learning. No outcome = no review.
         </p>
       </div>
 
