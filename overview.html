@@ -13,7 +13,9 @@
     <header class="top">
       <div class="top-left">
         <h1>Overview</h1>
-        <p class="sub">System-wide visibility: adoption + decision health (review discipline).</p>
+        <p class="sub">
+          System-wide visibility: adoption + decision health (review discipline). People decisions are the highest leverage.
+        </p>
       </div>
 
       <div class="top-actions">
@@ -56,22 +58,20 @@
 
       <div class="prose">
         <p>
-          This is a decision accountability system.
-          It exists to force explicit thinking before commitment, and enforce review after outcomes appear.
-          If decisions aren’t reviewed, the system is failing — even if execution looks “busy”.
+          This is a decision accountability system. It forces explicit thinking before commitment and enforces review after
+          outcomes appear. If decisions aren’t reviewed, the system is failing — even if execution looks “busy”.
         </p>
 
         <div class="callouts">
           <div class="mini">
             <div class="mini-title">Risk Signal (system)</div>
             <div class="mini-body">
-              Risk is not just “big decisions”.
-              A decision is flagged if:
+              A decision is flagged when it’s likely to create downstream damage:
               <span class="muted">Impact = High</span>
               <span class="muted">OR</span> <span class="muted">Confidence &lt; 60</span>
               <span class="muted">OR</span> <span class="muted">High impact + Guardrails missing</span>
               <span class="muted">OR</span> <span class="muted">Review is overdue</span>
-              <span class="muted">OR</span> <span class="muted">Status is “Ignored / Not Reviewed”.</span>
+              <span class="muted">OR</span> <span class="muted">Status is “Ignored”.</span>
             </div>
           </div>
 
@@ -79,21 +79,48 @@
             <div class="mini-title">Review Discipline</div>
             <div class="mini-body">
               “Due soon” = review scheduled within 14 days.
-              “Overdue” = review date passed and the loop is still open.
+              “Overdue” = review date passed and status is not Reviewed / Rejected.
+              The loop must close with: <span class="muted">Outcome</span> + <span class="muted">Learning</span>.
             </div>
           </div>
 
           <div class="mini">
+            <div class="mini-title">Why People Decisions</div>
+            <div class="mini-body">
+              Hiring, compensation, and org design decisions compound. One wrong hire can distort execution, culture, and cash.
+              This system turns “gut calls” into auditable commitments.
+            </div>
+          </div>
+        </div>
+
+        <div class="callouts" style="margin-top:12px;">
+          <div class="mini">
             <div class="mini-title">Testers Count</div>
             <div class="mini-body">
               Approximate unique browsers via a lightweight public counter API + local “seen” flag per browser.
+              It’s a directional adoption signal, not analytics-grade truth.
+            </div>
+          </div>
+
+          <div class="mini">
+            <div class="mini-title">What “Good” Looks Like</div>
+            <div class="mini-body">
+              Fewer high-risk decisions. Higher guardrail coverage. Reviews completed on time.
+              If risk stays high, you’re shipping decisions without constraints.
+            </div>
+          </div>
+
+          <div class="mini">
+            <div class="mini-title">Anti-Rationalization Rule</div>
+            <div class="mini-body">
+              A decision without a review date is a decision you plan to rationalize later.
+              No review date → the loop is intentionally left open.
             </div>
           </div>
         </div>
 
         <p style="margin-top:14px;">
-          The point isn’t logging. The point is learning.
-          A decision without a review date is a decision you plan to rationalize later.
+          The point isn’t logging. The point is learning. The system should make leadership judgment visible — to you first.
         </p>
       </div>
     </section>
