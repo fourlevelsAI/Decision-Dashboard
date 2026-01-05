@@ -1,4 +1,4 @@
-<!doctype html>
+ <!doctype html>
 <html lang="en" data-theme="light">
 <head>
   <meta charset="utf-8" />
@@ -14,74 +14,123 @@
       <div class="top-left">
         <h1>Decision Review</h1>
         <p class="sub">
-          This is where judgment is calibrated.  
-          Be precise. Be honest. Learn.
+          Close the loop. Capture reality. Extract one learning. If you don’t review, you don’t improve.
         </p>
       </div>
 
       <div class="top-actions">
         <a class="btn ghost" href="index.html">Dashboard</a>
-        <button class="btn ghost icon-btn" id="themeToggle">◐</button>
+        <button class="btn ghost icon-btn" id="themeToggle" aria-label="Toggle theme">◐</button>
         <span class="pill">V.4.3.2</span>
       </div>
     </header>
 
     <!-- DECISION CONTEXT -->
     <section class="card" id="decisionContext">
-      <h2>Decision</h2>
+      <div class="card-head">
+        <h2>Decision</h2>
+        <div class="muted" style="font-size: 13px;">
+          Review the original commitment before writing anything.
+        </div>
+      </div>
 
-      <p class="muted" id="review-question">
-        Loading decision…
-      </p>
+      <p class="muted" id="review-question">Loading decision…</p>
 
       <div class="decision-meta" id="review-meta"></div>
+
+      <div class="callouts" style="margin-top:12px;">
+        <div class="mini">
+          <div class="mini-title">Rule</div>
+          <div class="mini-body">
+            Outcome first. No justification. No storytelling.
+          </div>
+        </div>
+        <div class="mini">
+          <div class="mini-title">Quality Bar</div>
+          <div class="mini-body">
+            One clear learning you will apply on the next decision.
+          </div>
+        </div>
+        <div class="mini">
+          <div class="mini-title">People Decisions</div>
+          <div class="mini-body">
+            If this was hiring/pay: record impact on performance, cost, and team health.
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- REVIEW FORM -->
     <section class="card">
-      <h2>Review</h2>
+      <div class="card-head">
+        <h2>Review</h2>
+        <div class="muted" style="font-size: 13px;">
+          This closes the loop. A “review” without a learning is just a diary entry.
+        </div>
+      </div>
 
       <div class="form-grid">
         <div class="full">
-          <label>Outcome</label>
+          <label for="outcome">Outcome</label>
           <select id="outcome">
             <option value="">Select outcome</option>
             <option>Better than expected</option>
             <option>As expected</option>
             <option>Worse than expected</option>
           </select>
+          <div class="muted" style="margin-top:6px; font-size:12px;">
+            Choose the outcome relative to the expected result at the time you committed.
+          </div>
         </div>
 
         <div class="full">
-          <label>What actually happened?</label>
+          <label for="outcomeNotes">What actually happened?</label>
           <textarea
             id="outcomeNotes"
-            placeholder="Describe reality without justification."
+            placeholder="Facts only. What changed in the real world? Include measurable signals if you have them."
+            rows="4"
+          ></textarea>
+        </div>
+
+        <div class="full">
+          <label for="learning">What will you change next time?</label>
+          <textarea
+            id="learning"
+            placeholder="One concrete adjustment (e.g., add a guardrail, add a checkpoint, change the threshold, validate with X)."
             rows="3"
           ></textarea>
         </div>
 
         <div class="full">
-          <label>What would you change next time?</label>
+          <label for="reviewGuardrails">Guardrails update (optional)</label>
           <textarea
-            id="learning"
-            placeholder="One concrete adjustment. No theory."
+            id="reviewGuardrails"
+            placeholder="If you’d rewrite the guardrails now, write the new guardrails here (caps, gates, milestones, stop-loss)."
             rows="2"
           ></textarea>
+          <div class="muted" style="margin-top:6px; font-size:12px;">
+            If your system doesn’t capture guardrails changes yet, this field still documents the improved constraint set.
+          </div>
+        </div>
+
+        <div class="full">
+          <label for="followUpDate">Follow-up date (optional)</label>
+          <input id="followUpDate" type="date" />
+          <div class="muted" style="margin-top:6px; font-size:12px;">
+            Use this if the decision outcome is still unfolding (e.g., 30/60/90-day hiring check).
+          </div>
         </div>
       </div>
 
       <div class="actions">
-        <button class="btn primary" id="submitReview">
-          Close review
-        </button>
+        <button class="btn primary" id="submitReview">Close review</button>
       </div>
     </section>
 
     <footer class="foot">
       <p>
-        Reviewing a decision is optional only once.  
-        Skipping it repeatedly is how judgment degrades.
+        Skipping reviews is how judgment degrades.  
+        The system only works if you close loops consistently.
       </p>
     </footer>
 
@@ -90,3 +139,4 @@
   <script src="app.js"></script>
 </body>
 </html>
+
