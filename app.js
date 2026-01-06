@@ -1,5 +1,8 @@
-/* V.4.3.2 – app.js (Dashboard + Overview + Review + Queue + Cover)
+/* V.4.3.2 – app.js (Dashboard + Overview + Review + Queue)
    Core principle: decision accountability (pre-commitment + post-review).
+   Fixes:
+   - Robust status handling (supports Proposed / Committed / Reviewed / Rejected / Ignored + older labels)
+   - “Start logging” button hardening (prevents 404 by routing to the real dashboard entrypoint)
 */
 
 const STORAGE_KEY = "v432_decisions";
@@ -45,22 +48,45 @@ function escapeHTML(s) {
     .replaceAll("'", "&#039;");
 }
 
-// ---------- Domain / Status semantics ----------
+// ---------- Status semantics (backward compatible) ----------
 const STATUS = {
   PROPOSED: "Proposed",
-  APPROVED: "Approved",
+  COMMITTED: "Committed",          // dashboard UI
+  APPROVED: "Approved",            // older
+  REVIEWED: "Reviewed",            // dashboard UI
   REJECTED: "Rejected",
-  IGNORED: "Ignored / Not Reviewed"
+  IGNORED: "Ignored",              // dashboard UI
+  IGNORED_LONG: "Ignored / Not Reviewed" // older
 };
 
+function normStatus(s) {
+  const x = String(s || "").trim();
+  if (!x) return STATUS.PROPOSED;
+
+  // unify older labels
+  if (x.toLowerCase() === "approved") return STATUS.COMMITTED;
+  if (x.toLowerCase() === "ignored / not reviewed") return STATUS.IGNORED;
+
+  // allow “Not Reviewed” variants
+  if (x.toLowerCase() === "not reviewed") return STATUS.IGNORED;
+
+  return x;
+}
+
 function isIgnoredStatus(status) {
-  return String(status || "").trim() === STATUS.IGNORED;
+  const s = normStatus(status);
+  return s === STATUS.IGNORED || s === STATUS.IGNORED_LONG;
 }
 
 function isRejectedStatus(status) {
-  return String(status || "").trim() === STATUS.REJECTED;
+  return normStatus(status) === STATUS.REJECTED;
 }
 
+function isReviewedStatus(status) {
+  return normStatus(status) === STATUS.REVIEWED;
+}
+
+// ---------- Risk semantics ----------
 function isHighImpact(d) {
   return String(d.impact || "").toLowerCase() === "high";
 }
@@ -83,7 +109,7 @@ function computeHighRisk(d) {
   const conf = Number(d.confidence ?? NaN);
   const impactHigh = isHighImpact(d);
 
-  const guardrailsDefined = Boolean(d.guardrailsDefined);
+  const guardrailsDefined = Boolean(d.guardrailsDefined) || Boolean(String(d.guardrails || "").trim());
   const missingGuardrails = impactHigh && !guardrailsDefined;
 
   const lowConfidence = Number.isFinite(conf) && conf >= 0 && conf < 60;
@@ -114,10 +140,11 @@ function normalizeDecision(raw) {
   d.domain = d.domain || d.type || d.decisionDomain || "";
   d.type = d.type || d.domain || "";
 
-  d.status = d.status || STATUS.PROPOSED;
+  d.status = normStatus(d.status || STATUS.PROPOSED);
   d.impact = d.impact || "Medium";
 
-  d.reviewed = Boolean(d.reviewed);
+  // Reviewed can be derived from status too (keeps old data consistent)
+  d.reviewed = Boolean(d.reviewed) || isReviewedStatus(d.status);
 
   d.question = d.question || "";
   d.recommendation = d.recommendation || "";
@@ -142,7 +169,7 @@ function normalizeDecision(raw) {
   if (d.ltv != null && !Number.isFinite(d.ltv)) d.ltv = null;
 
   d.guardrails = d.guardrails || "";
-  d.guardrailsDefined = Boolean(d.guardrailsDefined);
+  d.guardrailsDefined = Boolean(d.guardrailsDefined) || Boolean(String(d.guardrails || "").trim());
 
   d.outcome = d.outcome || "";
   d.outcomeNotes = d.outcomeNotes || "";
@@ -179,6 +206,82 @@ function initTheme() {
       const next = cur === "light" ? "dark" : "light";
       document.documentElement.setAttribute("data-theme", next);
       localStorage.setItem(THEME_KEY, next);
+    });
+  }
+}
+
+// ---------- Navigation hardening (fixes Start logging 404) ----------
+function getDashboardHref() {
+  // Prefer explicit nav links if they exist (so we always match the real file names)
+  const candidates = [
+    document.querySelector("a[href*='index.html']"),
+    document.querySelector("a[href*='dashboard.html']"),
+    document.querySelector("a[href*='home.html']")
+  ].filter(Boolean);
+
+  // If your “Dashboard” pill/button exists, use its href
+  const dashNav =
+    [...document.querySelectorAll("a")]
+      .find(a => (a.textContent || "").trim().toLowerCase() === "dashboard");
+
+  if (dashNav?.getAttribute("href")) return dashNav.getAttribute("href");
+
+  // Fall back: GitHub Pages root entrypoint is index.html
+  return "index.html";
+}
+
+function wireStartButtons() {
+  // If you already have ids, this supports them
+  const explicitLogging = $("startLogging");
+  const explicitReviewing = $("startReviewing");
+
+  // Also support “Start logging” / “Start reviewing” without ids
+  const btns = [...document.querySelectorAll("a.btn, button.btn")];
+  const startLoggingBtn = explicitLogging || btns.find(b => (b.textContent || "").trim().toLowerCase() === "start logging");
+  const startReviewingBtn = explicitReviewing || btns.find(b => (b.textContent || "").trim().toLowerCase() === "start reviewing");
+
+  if (startLoggingBtn) {
+    const dashHref = getDashboardHref();
+
+    // If it's an <a> with a broken href, override it
+    if (startLoggingBtn.tagName === "A") {
+      startLoggingBtn.setAttribute("href", dashHref);
+    }
+
+    startLoggingBtn.addEventListener("click", (e) => {
+      // If on the dashboard already, scroll to the form.
+      const isDashboard = /index\.html$/i.test(location.pathname) || location.pathname.endsWith("/") || $("decisionForm");
+      if (isDashboard) {
+        const form = $("decisionForm");
+        if (form) {
+          e.preventDefault();
+          form.scrollIntoView({ behavior: "smooth", block: "start" });
+          // focus the first meaningful field
+          setTimeout(() => {
+            const q = $("question");
+            if (q) q.focus();
+          }, 250);
+        }
+        return;
+      }
+
+      // Otherwise route to dashboard (prevents 404)
+      if (startLoggingBtn.tagName !== "A") {
+        e.preventDefault();
+        window.location.href = dashHref;
+      }
+    });
+  }
+
+  if (startReviewingBtn) {
+    if (startReviewingBtn.tagName === "A") {
+      startReviewingBtn.setAttribute("href", "queue.html");
+    }
+    startReviewingBtn.addEventListener("click", (e) => {
+      if (startReviewingBtn.tagName !== "A") {
+        e.preventDefault();
+        window.location.href = "queue.html";
+      }
     });
   }
 }
@@ -223,10 +326,17 @@ function populateFilters(list) {
 
   if (statusEl) {
     const current = statusEl.value || "All statuses";
-    const known = [STATUS.PROPOSED, STATUS.APPROVED, STATUS.REJECTED, STATUS.IGNORED];
-    const fromData = [...new Set(list.map(d => String(d.status || "").trim()).filter(Boolean))];
+    const known = [
+      STATUS.PROPOSED,
+      STATUS.COMMITTED,
+      STATUS.REVIEWED,
+      STATUS.REJECTED,
+      STATUS.IGNORED
+    ];
+    const fromData = [...new Set(list.map(d => normStatus(d.status)).filter(Boolean))];
     const merged = [...known, ...fromData.filter(s => !known.includes(s))].filter(Boolean);
 
+    // Build if empty / placeholder-ish
     if (statusEl.options.length <= 1) {
       statusEl.innerHTML = "";
       const optAll = document.createElement("option");
@@ -286,7 +396,7 @@ function renderDecisions() {
 
   let filtered = [...list].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
-  if (filterStatus !== "All statuses") filtered = filtered.filter(d => d.status === filterStatus);
+  if (filterStatus !== "All statuses") filtered = filtered.filter(d => normStatus(d.status) === filterStatus);
   if (filterRisk === "High") filtered = filtered.filter(d => computeRiskSignal(d));
 
   if (q) {
@@ -313,7 +423,7 @@ function renderDecisions() {
 
     const badges = [];
     badges.push(`<span class="badge">${escapeHTML(d.domain || d.type || "—")}</span>`);
-    badges.push(`<span class="badge">${escapeHTML(d.status || "—")}</span>`);
+    badges.push(`<span class="badge">${escapeHTML(normStatus(d.status) || "—")}</span>`);
     badges.push(`<span class="badge">Impact: ${escapeHTML(d.impact || "—")}</span>`);
 
     if (ignored) badges.push(`<span class="badge risk">IGNORED</span>`);
@@ -384,7 +494,6 @@ function renderDecisions() {
       renderDecisions();
       renderOverview();
       renderQueuePage();
-      renderCoverPage();
     });
   });
 }
@@ -413,8 +522,11 @@ function wireForm() {
     if (e) e.preventDefault();
 
     // accept both `type` and `domain` fields
-    const domainVal = readValueFirst(["type", "domain"]) || "";
-    const statusVal = readValueFirst(["status"]) || STATUS.PROPOSED;
+    const domainVal = readValueFirst(["domain", "type"]) || "";
+
+    // status values vary by UI; normalize
+    const rawStatus = readValueFirst(["status"]) || STATUS.PROPOSED;
+    const statusVal = normStatus(rawStatus);
 
     const d = normalizeDecision({
       id: uid(),
@@ -439,7 +551,7 @@ function wireForm() {
       ltv: readNumber("ltv"),
 
       guardrails: readValueFirst(["guardrails"]) || "",
-      guardrailsDefined: Boolean($("guardrailsDefined")?.checked),
+      guardrailsDefined: Boolean($("guardrailsDefined")?.checked) || Boolean(String(readValueFirst(["guardrails"]) || "").trim()),
 
       outcome: "",
       outcomeNotes: "",
@@ -451,6 +563,7 @@ function wireForm() {
       return;
     }
 
+    // Apply status semantics
     if (isIgnoredStatus(d.status)) {
       d.ignoredAt = Date.now();
       d.reviewed = false;
@@ -461,6 +574,14 @@ function wireForm() {
       d.reviewedAt = Date.now();
       d.outcome = "As expected";
       d.learning = "Rejected decision (closed).";
+    }
+
+    if (isReviewedStatus(d.status)) {
+      // If UI lets someone set “Reviewed” at creation, keep it consistent.
+      d.reviewed = true;
+      d.reviewedAt = Date.now();
+      d.outcome = d.outcome || "As expected";
+      d.learning = d.learning || "Marked as reviewed at creation.";
     }
 
     const list = loadDecisions();
@@ -479,7 +600,6 @@ function wireForm() {
     renderDecisions();
     renderOverview();
     renderQueuePage();
-    renderCoverPage();
   };
 
   if (form) form.addEventListener("submit", handler);
@@ -494,7 +614,6 @@ function wireForm() {
       renderDecisions();
       renderOverview();
       renderQueuePage();
-      renderCoverPage();
     });
   }
 
@@ -510,7 +629,7 @@ function wireForm() {
 
 // ---------- Overview page ----------
 async function incrementTesterCount() {
-  const el = $("testerCount") || $("cover-testers");
+  const el = $("testerCount");
   if (!el) return;
 
   const seenKey = "v432_seen";
@@ -593,7 +712,7 @@ function renderOverview() {
               </div>
               <div class="badges">
                 <span class="badge">${escapeHTML(d.domain || d.type || "—")}</span>
-                <span class="badge">${escapeHTML(d.status || "—")}</span>
+                <span class="badge">${escapeHTML(normStatus(d.status) || "—")}</span>
                 ${extraBadge}
               </div>
             </div>
@@ -608,43 +727,6 @@ function renderOverview() {
       }).join("");
     }
   }
-}
-
-// ---------- Cover page ----------
-function renderCoverPage() {
-  const hasCover =
-    $("cover-total") || $("cover-open") || $("cover-due") || $("cover-risk") || $("cover-avg");
-
-  if (!hasCover) return;
-
-  const list = loadDecisions();
-
-  const open = list.filter(d =>
-    !d.reviewed &&
-    !isIgnoredStatus(d.status) &&
-    !isRejectedStatus(d.status)
-  );
-
-  const dueSoon = list.filter(d =>
-    !d.reviewed &&
-    !isIgnoredStatus(d.status) &&
-    !isRejectedStatus(d.status) &&
-    computeUpcoming(d)
-  );
-
-  const riskOpen = list.filter(d =>
-    !d.reviewed &&
-    !isRejectedStatus(d.status) &&
-    computeRiskSignal(d)
-  );
-
-  const avg = avgConfidence(open);
-
-  if ($("cover-total")) $("cover-total").textContent = String(list.length);
-  if ($("cover-open")) $("cover-open").textContent = String(open.length);
-  if ($("cover-due")) $("cover-due").textContent = String(dueSoon.length);
-  if ($("cover-risk")) $("cover-risk").textContent = String(riskOpen.length);
-  if ($("cover-avg")) $("cover-avg").textContent = avg === null ? "—" : `${avg}%`;
 }
 
 // ---------- Review page ----------
@@ -680,7 +762,7 @@ function renderReviewPage() {
 
   const badges = [];
   badges.push(`<span class="badge">${escapeHTML(d.domain || d.type || "—")}</span>`);
-  badges.push(`<span class="badge">${escapeHTML(d.status || "—")}</span>`);
+  badges.push(`<span class="badge">${escapeHTML(normStatus(d.status) || "—")}</span>`);
   badges.push(`<span class="badge">Impact: ${escapeHTML(d.impact || "—")}</span>`);
   if (ignored) badges.push(`<span class="badge risk">IGNORED</span>`);
   if (overdue) badges.push(`<span class="badge risk">OVERDUE</span>`);
@@ -721,6 +803,7 @@ function renderReviewPage() {
 
     list[idx].reviewed = true;
     list[idx].reviewedAt = Date.now();
+    list[idx].status = STATUS.REVIEWED;
 
     saveDecisions(list);
     window.location.href = "queue.html";
@@ -745,7 +828,7 @@ function renderQueueSection(mountId, items) {
 
     const badges = [];
     badges.push(`<span class="badge">${escapeHTML(d.domain || d.type || "—")}</span>`);
-    badges.push(`<span class="badge">${escapeHTML(d.status || "—")}</span>`);
+    badges.push(`<span class="badge">${escapeHTML(normStatus(d.status) || "—")}</span>`);
     if (d.reviewDate) badges.push(`<span class="badge">Review: ${escapeHTML(d.reviewDate)}</span>`);
     if (ignored) badges.push(`<span class="badge risk">IGNORED</span>`);
     if (overdue) badges.push(`<span class="badge risk">OVERDUE</span>`);
@@ -826,7 +909,7 @@ function renderQueuePage() {
 // ---------- Boot ----------
 (function init() {
   initTheme();
-
+  wireStartButtons();     // <-- fixes Start logging routing
   updateStats();
   wireForm();
 
@@ -834,7 +917,6 @@ function renderQueuePage() {
   renderOverview();
   renderReviewPage();
   renderQueuePage();
-  renderCoverPage();
 
   incrementTesterCount();
 })();
