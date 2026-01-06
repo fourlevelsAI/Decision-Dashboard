@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Decision Intelligence – V.4.3.2</title>
   <link rel="stylesheet" href="style.css" />
+  <style>
+    html { scroll-behavior: smooth; }
+  </style>
 </head>
 
 <body>
@@ -19,10 +22,11 @@
           The loop only works when it closes.
         </p>
 
+        <!-- HERO ACTIONS (no duplicated nav) -->
         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
           <a class="btn primary" href="dashboard.html">Start logging</a>
-          <a class="btn ghost" href="queue.html">Go to Review Queue</a>
-          <a class="btn ghost" href="overview.html">System Overview</a>
+          <a class="btn ghost" href="#how-it-works">How it works</a>
+          <a class="btn ghost" href="#weekly">Weekly ritual</a>
         </div>
 
         <div style="margin-top:14px; color:var(--muted); font-size:13px; line-height:1.6;">
@@ -32,6 +36,7 @@
         </div>
       </div>
 
+      <!-- SINGLE NAV (only here) -->
       <div class="top-actions">
         <a class="btn ghost" href="dashboard.html">Dashboard</a>
         <a class="btn ghost" href="queue.html">Review Queue</a>
@@ -67,7 +72,7 @@
       </div>
     </section>
 
-    <section class="card">
+    <section class="card" id="how-it-works">
       <div class="card-head">
         <h2>How it works</h2>
         <div class="muted" style="font-size:13px;">
@@ -102,7 +107,7 @@
       </div>
     </section>
 
-    <section class="card">
+    <section class="card" id="weekly">
       <div class="card-head">
         <h2>What you’ll use weekly</h2>
         <div class="muted" style="font-size:13px;">
@@ -142,7 +147,7 @@
         </div>
       </div>
 
-      <div class="callouts" style="margin-top:12px;">
+      <div class="callouts" id="rules" style="margin-top:12px;">
         <div class="mini" style="grid-column: 1 / -1;">
           <div class="mini-title">Rules that keep it honest</div>
           <div class="mini-body">
