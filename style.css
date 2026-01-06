@@ -1,4 +1,4 @@
- :root{
+:root{
   --bg0:#f6f7fb;
   --bg1:#eef2ff;
   --card:#ffffff;
@@ -123,6 +123,12 @@ body{
 .icon-btn{width:42px; justify-content:center}
 
 .btn:disabled{opacity:.55; cursor:not-allowed}
+
+.btn[aria-disabled="true"]{
+  opacity:.55;
+  pointer-events:none;
+  cursor:not-allowed;
+}
 
 /* ---------- STATS ---------- */
 
@@ -412,6 +418,160 @@ input:focus, select:focus, textarea:focus{
 
 .muted{color:var(--muted)}
 
+/* ---------- COVER PAGE (NEW) ---------- */
+
+.hero{
+  display:grid;
+  grid-template-columns: 1.2fr .8fr;
+  gap:16px;
+  align-items:stretch;
+  margin-top:8px;
+}
+
+.hero-card{
+  background: var(--card);
+  border:1px solid var(--line);
+  border-radius: calc(var(--radius) + 4px);
+  padding:18px;
+  box-shadow: var(--shadow);
+}
+
+.hero-title{
+  margin:0;
+  font-size:44px;
+  line-height:1.05;
+  letter-spacing:-.03em;
+}
+
+.hero-sub{
+  margin:10px 0 0;
+  color:var(--muted);
+  font-size:16px;
+  line-height:1.6;
+  max-width: 62ch;
+}
+
+.hero-cta{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-top:14px;
+}
+
+.hero-meta{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-top:14px;
+  color:var(--muted);
+  font-size:13px;
+}
+
+.hero-meta b{color:var(--text); font-weight:900}
+
+.cover-stats{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:12px;
+  margin-top:12px;
+}
+
+.cover-stat{
+  border:1px solid var(--line);
+  border-radius: 16px;
+  padding:14px;
+  background: var(--glass2);
+}
+
+.cover-stat .label{
+  color:var(--muted);
+  font-size:12px;
+  letter-spacing:.12em;
+  font-weight:900;
+}
+
+.cover-stat .value{
+  font-size:30px;
+  font-weight:900;
+  margin-top:8px;
+}
+
+.cover-stat .sub{
+  margin-top:4px;
+  color:var(--muted);
+  font-size:13px;
+}
+
+.loop{
+  display:grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap:12px;
+  margin-top:14px;
+}
+
+.step{
+  border:1px solid var(--line);
+  border-radius: 16px;
+  padding:14px;
+  background: var(--glass2);
+}
+
+.step-kicker{
+  color:var(--muted);
+  font-size:12px;
+  letter-spacing:.12em;
+  font-weight:900;
+}
+
+.step-title{
+  margin:8px 0 0;
+  font-weight:900;
+  font-size:16px;
+}
+
+.step-body{
+  margin-top:8px;
+  color:var(--muted);
+  line-height:1.6;
+  font-size:14px;
+}
+
+.cover-grid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:14px;
+  margin-top:14px;
+}
+
+.cover-grid .card{margin-top:0}
+
+/* simple nav row (optional use on cover) */
+.nav{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:18px;
+}
+
+.nav-left{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.brand{
+  font-weight:900;
+  letter-spacing:-.01em;
+}
+
+.nav-right{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
 /* ---------- FOOTER ---------- */
 
 .foot{
@@ -428,5 +588,10 @@ input:focus, select:focus, textarea:focus{
   .decision-grid{grid-template-columns: 1fr}
   .callouts{grid-template-columns: 1fr}
   .top-left h1{font-size:44px}
-}
 
+  /* cover */
+  .hero{grid-template-columns: 1fr}
+  .hero-title{font-size:38px}
+  .loop{grid-template-columns: 1fr}
+  .cover-grid{grid-template-columns: 1fr}
+}
