@@ -1,9 +1,10 @@
-<!doctype html>
+ <!doctype html>
 <html lang="en" data-theme="light">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Review Queue – V.4.3.2</title>
+  <meta name="description" content="Review Queue for V.4.3.2: overdue, due soon, risk open, and ignored decisions that require closure." />
   <link rel="stylesheet" href="style.css" />
 </head>
 
@@ -14,12 +15,13 @@
       <div class="top-left">
         <h1>Review Queue</h1>
         <p class="sub">
-          The system only works if loops close. This page shows where judgment is currently leaking.
+          The loop only works when it closes. This page shows where judgment is leaking and where debt is accumulating.
         </p>
       </div>
 
       <div class="top-actions">
-        <a class="btn ghost" href="index.html">Dashboard</a>
+        <a class="btn ghost" href="index.html">Home</a>
+        <a class="btn ghost" href="dashboard.html">Dashboard</a>
         <a class="btn ghost" href="overview.html">Overview</a>
         <button class="btn ghost icon-btn" id="themeToggle" aria-label="Toggle theme">◐</button>
         <span class="pill">V.4.3.2</span>
@@ -41,7 +43,7 @@
       </div>
 
       <div class="stat-card">
-        <div class="stat-label">HIGH RISK OPEN</div>
+        <div class="stat-label">RISK OPEN</div>
         <div class="stat-value" id="q-stat-risk">0</div>
         <div class="stat-sub">Unreviewed risk signal</div>
       </div>
@@ -56,34 +58,36 @@
     <!-- HOW TO USE -->
     <section class="card">
       <div class="card-head">
-        <h2>How to use this</h2>
+        <h2>Operating rule</h2>
+        <p class="sub">This is a weekly ritual. Don’t “clean it up.” Close loops and extract learning.</p>
       </div>
 
       <div class="prose">
         <p>
-          This is your weekly leadership ritual. Don’t “clean it up.” Close loops.
-          If you keep postponing reviews, you are training yourself to rationalize instead of learn.
+          If reviews keep slipping, you’re training yourself to rationalize instead of learn.
+          A review closes only with: <b>Outcome</b> + <b>Learning</b>.
         </p>
 
         <div class="callouts">
           <div class="mini">
-            <div class="mini-title">Priority</div>
+            <div class="mini-title">Priority order</div>
             <div class="mini-body">
-              Overdue first. Then Due Soon. Then Risk Open. Then Ignored.
+              Overdue → Due Soon → Risk Open → Ignored.
             </div>
           </div>
 
           <div class="mini">
-            <div class="mini-title">Close the loop</div>
+            <div class="mini-title">What “risk open” means</div>
             <div class="mini-body">
-              A review closes only with: <span class="muted">Outcome</span> + <span class="muted">Learning</span>.
+              Impact = High, or Confidence &lt; 60, or High impact + Guardrails missing,
+              or the decision is already overdue.
             </div>
           </div>
 
           <div class="mini">
-            <div class="mini-title">People decisions</div>
+            <div class="mini-title">Where to start</div>
             <div class="mini-body">
-              Hiring/pay errors compound. Review those first if you’re unsure where to start.
+              People decisions compound fastest. If you’re unsure, review those first.
             </div>
           </div>
         </div>
@@ -94,7 +98,7 @@
     <section class="card">
       <div class="card-head">
         <h2>Overdue</h2>
-        <p class="sub">These are already late. This is active judgment debt.</p>
+        <p class="sub">Already late. This is active judgment debt.</p>
       </div>
       <div id="q-overdue">
         <p class="empty">No overdue reviews. Good.</p>
@@ -105,7 +109,7 @@
     <section class="card">
       <div class="card-head">
         <h2>Due soon (14 days)</h2>
-        <p class="sub">Reviews approaching. Don’t let these drift into overdue.</p>
+        <p class="sub">Scheduled reviews approaching. Don’t let these drift into overdue.</p>
       </div>
       <div id="q-due">
         <p class="empty">Nothing due soon.</p>
@@ -115,11 +119,11 @@
     <!-- QUEUE: RISK OPEN -->
     <section class="card">
       <div class="card-head">
-        <h2>High-risk open</h2>
-        <p class="sub">Unreviewed decisions with a risk signal (impact/confidence/guardrails).</p>
+        <h2>Risk open</h2>
+        <p class="sub">Unreviewed decisions with a risk signal (impact/confidence/guardrails/overdue/ignored).</p>
       </div>
       <div id="q-risk">
-        <p class="empty">No high-risk open decisions.</p>
+        <p class="empty">No risk-open decisions.</p>
       </div>
     </section>
 
@@ -127,7 +131,7 @@
     <section class="card">
       <div class="card-head">
         <h2>Ignored / Not reviewed</h2>
-        <p class="sub">This is a declared failure state. Keep it visible.</p>
+        <p class="sub">Declared failure state. Keep it visible so it can’t be denied.</p>
       </div>
       <div id="q-ignored">
         <p class="empty">No ignored decisions.</p>
@@ -143,3 +147,4 @@
   <script src="app.js"></script>
 </body>
 </html>
+
