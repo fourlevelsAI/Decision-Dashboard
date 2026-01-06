@@ -1,4 +1,4 @@
- /* V.4.3.2 – app.js (Dashboard + Overview + Review + Queue)
+/* V.4.3.2 – app.js (Dashboard + Overview + Review + Queue + Cover)
    Core principle: decision accountability (pre-commitment + post-review).
 */
 
@@ -384,6 +384,7 @@ function renderDecisions() {
       renderDecisions();
       renderOverview();
       renderQueuePage();
+      renderCoverPage();
     });
   });
 }
@@ -413,7 +414,6 @@ function wireForm() {
 
     // accept both `type` and `domain` fields
     const domainVal = readValueFirst(["type", "domain"]) || "";
-
     const statusVal = readValueFirst(["status"]) || STATUS.PROPOSED;
 
     const d = normalizeDecision({
@@ -479,6 +479,7 @@ function wireForm() {
     renderDecisions();
     renderOverview();
     renderQueuePage();
+    renderCoverPage();
   };
 
   if (form) form.addEventListener("submit", handler);
@@ -493,6 +494,7 @@ function wireForm() {
       renderDecisions();
       renderOverview();
       renderQueuePage();
+      renderCoverPage();
     });
   }
 
@@ -508,7 +510,7 @@ function wireForm() {
 
 // ---------- Overview page ----------
 async function incrementTesterCount() {
-  const el = $("testerCount");
+  const el = $("testerCount") || $("cover-testers");
   if (!el) return;
 
   const seenKey = "v432_seen";
@@ -606,6 +608,43 @@ function renderOverview() {
       }).join("");
     }
   }
+}
+
+// ---------- Cover page ----------
+function renderCoverPage() {
+  const hasCover =
+    $("cover-total") || $("cover-open") || $("cover-due") || $("cover-risk") || $("cover-avg");
+
+  if (!hasCover) return;
+
+  const list = loadDecisions();
+
+  const open = list.filter(d =>
+    !d.reviewed &&
+    !isIgnoredStatus(d.status) &&
+    !isRejectedStatus(d.status)
+  );
+
+  const dueSoon = list.filter(d =>
+    !d.reviewed &&
+    !isIgnoredStatus(d.status) &&
+    !isRejectedStatus(d.status) &&
+    computeUpcoming(d)
+  );
+
+  const riskOpen = list.filter(d =>
+    !d.reviewed &&
+    !isRejectedStatus(d.status) &&
+    computeRiskSignal(d)
+  );
+
+  const avg = avgConfidence(open);
+
+  if ($("cover-total")) $("cover-total").textContent = String(list.length);
+  if ($("cover-open")) $("cover-open").textContent = String(open.length);
+  if ($("cover-due")) $("cover-due").textContent = String(dueSoon.length);
+  if ($("cover-risk")) $("cover-risk").textContent = String(riskOpen.length);
+  if ($("cover-avg")) $("cover-avg").textContent = avg === null ? "—" : `${avg}%`;
 }
 
 // ---------- Review page ----------
@@ -795,7 +834,7 @@ function renderQueuePage() {
   renderOverview();
   renderReviewPage();
   renderQueuePage();
+  renderCoverPage();
 
   incrementTesterCount();
 })();
-
