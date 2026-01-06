@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Decision Intelligence – V.4.3.2</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="container">
+
+    <header class="top">
+      <div class="top-left">
+        <div class="muted" style="font-weight:900; letter-spacing:.08em; font-size:12px;">DECISION INTELLIGENCE</div>
+        <h1>Make decisions you can audit.</h1>
+        <p class="sub">
+          Not an HR tool. A decision accountability system: write before you commit, review after reality responds.
+          The loop only works when it closes.
+        </p>
+
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
+          <a class="btn primary" href="dashboard.html">Start logging</a>
+          <a class="btn ghost" href="queue.html">Go to Review Queue</a>
+          <a class="btn ghost" href="overview.html">System Overview</a>
+        </div>
+
+        <div style="margin-top:14px; color:var(--muted); font-size:13px; line-height:1.6;">
+          <div><b>Principle:</b> No writing → no decision.</div>
+          <div><b>Rule:</b> No outcome + learning → no review.</div>
+          <div><b>Cost:</b> Unreviewed decisions become judgment debt.</div>
+        </div>
+      </div>
+
+      <div class="top-actions">
+        <a class="btn ghost" href="dashboard.html">Dashboard</a>
+        <a class="btn ghost" href="queue.html">Review Queue</a>
+        <a class="btn ghost" href="overview.html">Overview</a>
+        <button class="btn ghost icon-btn" id="themeToggle" aria-label="Toggle theme">◐</button>
+        <span class="pill">V.4.3.2</span>
+      </div>
+    </header>
+
+    <section class="stats">
+      <div class="stat-card">
+        <div class="stat-label">OPEN</div>
+        <div class="stat-value" id="stat-open">0</div>
+        <div class="stat-sub">Active decisions</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">DUE SOON</div>
+        <div class="stat-value" id="stat-due">0</div>
+        <div class="stat-sub">Next 14 days</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">RISK SIGNAL</div>
+        <div class="stat-value" id="stat-risk">0</div>
+        <div class="stat-sub">Overdue / ignored / high risk</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">AVG CONFIDENCE</div>
+        <div class="stat-value" id="stat-avg">—</div>
+        <div class="stat-sub">Across open decisions</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>How it works</h2>
+        <div class="muted" style="font-size:13px;">
+          The system enforces two moments: <b>pre-commitment</b> clarity and <b>post-outcome</b> learning.
+        </div>
+      </div>
+
+      <div class="callouts">
+        <div class="mini">
+          <div class="mini-title">STEP 1 — Write the decision</div>
+          <div class="mini-body">
+            Capture the question, recommendation, confidence, evidence, review date, and guardrails.
+            If it’s not written, it’s not a decision.
+          </div>
+        </div>
+
+        <div class="mini">
+          <div class="mini-title">STEP 2 — Commit with a review date</div>
+          <div class="mini-body">
+            A decision without a review date is a decision you plan to rationalize later.
+            Set the checkpoint before execution creates bias.
+          </div>
+        </div>
+
+        <div class="mini">
+          <div class="mini-title">STEP 3 — Close the loop</div>
+          <div class="mini-body">
+            Reviews require an outcome and one learning.
+            No learning → the system fails, even if activity looks “busy”.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>What you’ll use weekly</h2>
+        <div class="muted" style="font-size:13px;">
+          A simple operating ritual for leadership judgment.
+        </div>
+      </div>
+
+      <div class="callouts">
+        <div class="mini">
+          <div class="mini-title">Dashboard</div>
+          <div class="mini-body">
+            Log decisions. Attach confidence + evidence. Track risk signals.
+          </div>
+          <div style="margin-top:12px;">
+            <a class="btn primary" href="dashboard.html">Open Dashboard</a>
+          </div>
+        </div>
+
+        <div class="mini">
+          <div class="mini-title">Review Queue</div>
+          <div class="mini-body">
+            Overdue first. Due soon next. Then risk open. Then ignored.
+          </div>
+          <div style="margin-top:12px;">
+            <a class="btn ghost" href="queue.html">Start reviewing</a>
+          </div>
+        </div>
+
+        <div class="mini">
+          <div class="mini-title">Overview</div>
+          <div class="mini-body">
+            System health: adoption + review discipline + decision quality signals.
+          </div>
+          <div style="margin-top:12px;">
+            <a class="btn ghost" href="overview.html">System overview</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="callouts" style="margin-top:12px;">
+        <div class="mini" style="grid-column: 1 / -1;">
+          <div class="mini-title">Rules that keep it honest</div>
+          <div class="mini-body">
+            1) <b>No writing → no decision.</b> If it lives in your head, it can’t be audited.<br/>
+            2) <b>No outcome + learning → no review.</b> Reviews exist to extract signal, not story.<br/>
+            3) <b>People decisions compound.</b> Hiring, compensation, and org design create downstream damage fast.<br/>
+            4) <b>High impact requires guardrails.</b> Missing guardrails is a risk signal by definition.
+          </div>
+
+          <div class="card" style="margin-top:14px;">
+            <div class="stat-label">TESTERS</div>
+            <div class="stat-value" id="testerCount">—</div>
+            <div class="stat-sub">Unique browsers (approx)</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <p>If you can see this, styles are working.</p>
+    </footer>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
