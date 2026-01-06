@@ -3,182 +3,187 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Decision Intelligence – V.4.3.2</title>
-  <meta name="description" content="A decision accountability system: write before you commit, review after outcomes. Close loops. Reduce judgment debt." />
+  <title>Decision Dashboard – V.4.3.2</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
   <div class="container">
 
-    <!-- NAV -->
-    <header class="nav">
-      <div class="nav-left">
-        <div class="brand">Decision Intelligence</div>
-        <span class="pill">V.4.3.2</span>
+    <header class="top">
+      <div class="top-left">
+        <h1>Decision Dashboard</h1>
+        <p class="sub">
+          Not an HR tool. A system that forces clear thinking before decisions — and review after reality responds.
+        </p>
       </div>
 
-      <div class="nav-right">
-        <a class="btn ghost" href="dashboard.html">Dashboard</a>
+      <div class="top-actions">
+        <a class="btn ghost" href="index.html">Home</a>
         <a class="btn ghost" href="queue.html">Review Queue</a>
         <a class="btn ghost" href="overview.html">Overview</a>
         <button class="btn ghost icon-btn" id="themeToggle" aria-label="Toggle theme">◐</button>
+        <span class="pill">V.4.3.2</span>
       </div>
     </header>
 
-    <!-- HERO -->
-    <section class="hero">
-      <div class="hero-card">
-        <h1 class="hero-title">Make decisions you can audit.</h1>
-        <p class="hero-sub">
-          Not an HR tool. A decision accountability system: write before you commit, review after reality responds.
-          The loop only works when it closes.
-        </p>
-
-        <div class="hero-cta">
-          <a class="btn primary" href="dashboard.html">Open Dashboard</a>
-          <a class="btn ghost" href="queue.html">Go to Review Queue</a>
-          <a class="btn ghost" href="overview.html">System Overview</a>
-        </div>
-
-        <div class="hero-meta">
-          <span><b>Principle:</b> No writing → no decision.</span>
-          <span><b>Rule:</b> No outcome + learning → no review.</span>
-          <span><b>Cost:</b> Unreviewed decisions become judgment debt.</span>
-        </div>
+    <section class="stats">
+      <div class="stat-card">
+        <div class="stat-label">OPEN DECISIONS</div>
+        <div class="stat-value" id="openCount">0</div>
+        <div class="stat-sub">Active decisions</div>
       </div>
 
-      <div class="hero-card">
-        <div class="stat-label">LIVE SYSTEM SNAPSHOT</div>
+      <div class="stat-card">
+        <div class="stat-label">DUE SOON</div>
+        <div class="stat-value" id="dueSoonCount">0</div>
+        <div class="stat-sub">Next 14 days</div>
+      </div>
 
-        <div class="cover-stats">
-          <div class="cover-stat">
-            <div class="label">OPEN</div>
-            <div class="value" id="stat-open">0</div>
-            <div class="sub">Active decisions</div>
-          </div>
+      <div class="stat-card">
+        <div class="stat-label">HIGH RISK</div>
+        <div class="stat-value" id="highRiskCount">0</div>
+        <div class="stat-sub">Missing guardrails / low confidence</div>
+      </div>
 
-          <div class="cover-stat">
-            <div class="label">DUE SOON</div>
-            <div class="value" id="stat-due">0</div>
-            <div class="sub">Next 14 days</div>
-          </div>
-
-          <div class="cover-stat">
-            <div class="label">RISK SIGNAL</div>
-            <div class="value" id="stat-risk">0</div>
-            <div class="sub">Overdue / ignored / high risk</div>
-          </div>
-
-          <div class="cover-stat">
-            <div class="label">AVG CONFIDENCE</div>
-            <div class="value" id="stat-avg">—</div>
-            <div class="sub">Across open decisions</div>
-          </div>
-        </div>
-
-        <p class="sub" style="margin-top:12px;">
-          This is lightweight by design: local storage + clear rules.
-          If adoption grows, we swap the storage layer later.
-        </p>
+      <div class="stat-card">
+        <div class="stat-label">AVG CONFIDENCE</div>
+        <div class="stat-value" id="avgConfidence">—</div>
+        <div class="stat-sub">Across logged decisions</div>
       </div>
     </section>
 
-    <!-- LOOP / HOW IT WORKS -->
     <section class="card">
       <div class="card-head">
-        <h2>How it works</h2>
+        <h2>Add a decision</h2>
         <p class="sub">
-          The system enforces two moments: <b>pre-commitment</b> clarity and <b>post-outcome</b> learning.
+          If it’s not written, it’s not a decision. Write it now so you can audit it later.
         </p>
       </div>
 
-      <div class="loop">
-        <div class="step">
-          <div class="step-kicker">STEP 1</div>
-          <div class="step-title">Write the decision</div>
-          <div class="step-body">
-            Capture the question, recommendation, confidence, evidence, review date, and guardrails.
-            If it’s not written, it’s not a decision.
+      <form id="decisionForm">
+        <div class="form-grid">
+          <div>
+            <label>Decision domain</label>
+            <select id="domain">
+              <option>Hiring</option>
+              <option>Compensation</option>
+              <option>Org Design</option>
+              <option>Marketing</option>
+              <option>Product</option>
+              <option>Finance</option>
+              <option>Strategy</option>
+            </select>
+          </div>
+
+          <div>
+            <label>Status</label>
+            <select id="status">
+              <option>Proposed</option>
+              <option>Approved</option>
+              <option>Rejected</option>
+              <option>Ignored / Not Reviewed</option>
+            </select>
+          </div>
+
+          <div>
+            <label>Impact</label>
+            <select id="impact">
+              <option>Low</option>
+              <option>Medium</option>
+              <option>High</option>
+            </select>
+          </div>
+
+          <div class="full">
+            <label>Decision question</label>
+            <input id="question" placeholder="e.g. Hire a senior marketer this quarter?" />
+          </div>
+
+          <div class="full">
+            <label>Recommendation</label>
+            <input id="recommendation" placeholder="e.g. Yes — with guardrails and a review checkpoint" />
+          </div>
+
+          <div>
+            <label>Confidence at commit (0–100)</label>
+            <input type="number" id="confidence" min="0" max="100" value="68" />
+          </div>
+
+          <div>
+            <label>Review date</label>
+            <input type="date" id="reviewDate" />
+          </div>
+
+          <div class="full">
+            <label>Reason / Evidence</label>
+            <textarea id="reason" placeholder="Write assumptions, evidence, and what would change your mind."></textarea>
           </div>
         </div>
 
-        <div class="step">
-          <div class="step-kicker">STEP 2</div>
-          <div class="step-title">Commit with a review date</div>
-          <div class="step-body">
-            A decision without a review date is a decision you plan to rationalize later.
-            Set the checkpoint before execution creates bias.
-          </div>
-        </div>
+        <details class="advanced">
+          <summary>Advanced metrics (optional)</summary>
 
-        <div class="step">
-          <div class="step-kicker">STEP 3</div>
-          <div class="step-title">Close the loop</div>
-          <div class="step-body">
-            Reviews require an outcome and one learning.
-            No learning → the system fails, even if activity looks “busy”.
+          <div class="form-grid">
+            <div>
+              <label>Runway (months)</label>
+              <input type="number" id="runway" value="6" />
+            </div>
+
+            <div>
+              <label>Growth % (MoM)</label>
+              <input type="number" id="growth" value="12" />
+            </div>
+
+            <div>
+              <label>LTV / CAC</label>
+              <input type="number" step="0.1" id="ltv" value="3.2" />
+            </div>
+
+            <div class="full">
+              <label>Guardrails</label>
+              <input id="guardrails" placeholder="e.g. cap spend, milestone gate, hire only after X" />
+              <div class="muted" style="margin-top:6px; font-size:12px;">
+                Guardrails are treated as a binary signal: empty = missing. (This can trigger HIGH RISK.)
+              </div>
+            </div>
+
+            <div class="full" style="display:flex; align-items:center; gap:10px;">
+              <input type="checkbox" id="guardrailsDefined" style="width:auto;" />
+              <label for="guardrailsDefined" style="margin:0;">Guardrails explicitly defined (binary)</label>
+            </div>
           </div>
+        </details>
+
+        <div class="actions">
+          <button type="submit" class="btn primary">Add decision</button>
         </div>
-      </div>
+      </form>
     </section>
 
-    <!-- WHY / PAGES -->
-    <section class="cover-grid">
-      <section class="card">
-        <div class="card-head">
-          <h2>What you’ll use weekly</h2>
-          <p class="sub">A simple operating ritual for leadership judgment.</p>
-        </div>
+    <section class="card">
+      <div class="card-head">
+        <h2>Decisions</h2>
+        <p class="sub">
+          Reviews require recording the outcome + one learning. No outcome = no review.
+        </p>
+      </div>
 
-        <div class="callouts">
-          <div class="mini">
-            <div class="mini-title">Dashboard</div>
-            <div class="mini-body">
-              Log decisions. Attach confidence + evidence. Track risk signals.
-            </div>
-          </div>
+      <div class="filters">
+        <select id="filterStatus">
+          <option value="All statuses">All statuses</option>
+        </select>
 
-          <div class="mini">
-            <div class="mini-title">Review Queue</div>
-            <div class="mini-body">
-              Overdue first. Due soon next. Then risk open. Then ignored.
-            </div>
-          </div>
+        <select id="filterRisk">
+          <option value="All risk">All risk</option>
+        </select>
 
-          <div class="mini">
-            <div class="mini-title">Overview</div>
-            <div class="mini-body">
-              System health: adoption + review discipline + decision quality signals.
-            </div>
-          </div>
-        </div>
+        <input id="search" placeholder="Search decisions…" />
+      </div>
 
-        <div class="hero-cta" style="margin-top:14px;">
-          <a class="btn primary" href="dashboard.html">Start logging</a>
-          <a class="btn ghost" href="queue.html">Start reviewing</a>
-        </div>
-      </section>
-
-      <section class="card">
-        <div class="card-head">
-          <h2>Rules that keep it honest</h2>
-          <p class="sub">These prevent self-deception and post-hoc rationalization.</p>
-        </div>
-
-        <div class="prose">
-          <p><b>1) No writing → no decision.</b> If it lives in your head, it can’t be audited.</p>
-          <p style="margin-top:10px;"><b>2) No outcome + learning → no review.</b> Reviews exist to extract signal, not story.</p>
-          <p style="margin-top:10px;"><b>3) People decisions compound.</b> Hiring, compensation, and org design create downstream damage fast.</p>
-          <p style="margin-top:10px;"><b>4) High impact requires guardrails.</b> Missing guardrails is a risk signal by definition.</p>
-        </div>
-
-        <div class="card" style="margin-top:14px;">
-          <div class="stat-label">TESTERS</div>
-          <div class="stat-value" id="testerCount">—</div>
-          <div class="stat-sub">Unique browsers (approx)</div>
-        </div>
-      </section>
+      <div id="decisionList">
+        <p class="empty">No decisions yet.</p>
+      </div>
     </section>
 
     <footer class="foot">
